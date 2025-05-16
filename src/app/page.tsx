@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, ChangeEvent, DragEvent, useEffect, useMemo } from 'react';
 import Script from 'next/script';
-import Image from 'next/image'; // 添加导入Image组件
 import ColorPalette from '../components/ColorPalette';
 // 导入像素化工具和类型
 import {
