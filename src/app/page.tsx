@@ -156,6 +156,8 @@ export default function Home() {
   const [remapTrigger, setRemapTrigger] = useState<number>(0);
   const [isManualColoringMode, setIsManualColoringMode] = useState<boolean>(false);
   const [selectedColor, setSelectedColor] = useState<MappedPixel | null>(null);
+  // 新增：一键擦除模式状态
+  const [isEraseMode, setIsEraseMode] = useState<boolean>(false);
   // 新增状态变量：控制打赏弹窗
   const [isDonationModalOpen, setIsDonationModalOpen] = useState<boolean>(false);
   const [customPaletteSelections, setCustomPaletteSelections] = useState<PaletteSelections>({});
@@ -309,6 +311,21 @@ export default function Home() {
     // ++ Reset manual coloring mode when a new file is processed ++
     setIsManualColoringMode(false);
     setSelectedColor(null);
+    setIsEraseMode(false);
+  };
+
+  // 处理一键擦除模式切换
+  const handleEraseToggle = () => {
+    // 确保在手动上色模式下才能使用擦除功能
+    if (!isManualColoringMode) {
+      return;
+    }
+    
+    setIsEraseMode(!isEraseMode);
+    // 如果开启擦除模式，取消选中的颜色
+    if (!isEraseMode) {
+      setSelectedColor(null);
+    }
   };
 
   // ++ 新增：处理输入框变化的函数 ++
@@ -824,6 +841,74 @@ export default function Home() {
 
   // --- Canvas Interaction ---
 
+  // 洪水填充擦除函数
+  const floodFillErase = (startRow: number, startCol: number, targetKey: string) => {
+    if (!mappedPixelData || !gridDimensions) return;
+
+    const { N, M } = gridDimensions;
+    const newPixelData = mappedPixelData.map(row => row.map(cell => ({ ...cell })));
+    const visited = Array(M).fill(null).map(() => Array(N).fill(false));
+    
+    // 使用栈实现非递归洪水填充
+    const stack = [{ row: startRow, col: startCol }];
+    
+    while (stack.length > 0) {
+      const { row, col } = stack.pop()!;
+      
+      // 检查边界
+      if (row < 0 || row >= M || col < 0 || col >= N || visited[row][col]) {
+        continue;
+      }
+      
+      const currentCell = newPixelData[row][col];
+      
+      // 检查是否是目标颜色且不是外部区域
+      if (!currentCell || currentCell.isExternal || currentCell.key !== targetKey) {
+        continue;
+      }
+      
+      // 标记为已访问
+      visited[row][col] = true;
+      
+      // 擦除当前像素（设为透明）
+      newPixelData[row][col] = { ...transparentColorData };
+      
+      // 添加相邻像素到栈中
+      stack.push(
+        { row: row - 1, col }, // 上
+        { row: row + 1, col }, // 下
+        { row, col: col - 1 }, // 左
+        { row, col: col + 1 }  // 右
+      );
+    }
+    
+    // 更新状态
+    setMappedPixelData(newPixelData);
+    
+    // 重新计算颜色统计
+    if (colorCounts) {
+      const newColorCounts: { [key: string]: { count: number; color: string } } = {};
+      let newTotalCount = 0;
+      
+      newPixelData.flat().forEach(cell => {
+        if (cell && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
+          if (!newColorCounts[cell.key]) {
+            const colorInfo = fullBeadPalette.find(p => p.key === cell.key);
+            newColorCounts[cell.key] = {
+              count: 0,
+              color: colorInfo?.hex || '#000000'
+            };
+          }
+          newColorCounts[cell.key].count++;
+          newTotalCount++;
+        }
+      });
+      
+      setColorCounts(newColorCounts);
+      setTotalBeadCount(newTotalCount);
+    }
+  };
+
   // ++ Re-introduce the combined interaction handler ++
   const handleCanvasInteraction = (
     clientX: number, 
@@ -860,6 +945,17 @@ export default function Home() {
 
     if (i >= 0 && i < N && j >= 0 && j < M) {
       const cellData = mappedPixelData[j][i];
+
+      // 一键擦除模式逻辑
+      if (isClick && isEraseMode) {
+        if (cellData && !cellData.isExternal && cellData.key && cellData.key !== TRANSPARENT_KEY) {
+          // 执行洪水填充擦除
+          floodFillErase(j, i, cellData.key);
+          setIsEraseMode(false); // 擦除完成后退出擦除模式
+          setTooltipData(null);
+        }
+        return;
+      }
 
       // Manual Coloring Logic - 保持原有的上色逻辑
       if (isClick && isManualColoringMode && selectedColor) {
@@ -1022,6 +1118,7 @@ export default function Home() {
     // 退出手动上色模式
     setIsManualColoringMode(false);
     setSelectedColor(null);
+    setIsEraseMode(false);
   };
 
   // ++ 新增：导出自定义色板配置 ++
@@ -1419,6 +1516,7 @@ export default function Home() {
                       setIsManualColoringMode(false); // Always exit mode here
                       setSelectedColor(null);
                       setTooltipData(null);
+                      setIsEraseMode(false); // 重置擦除模式状态
                     }}
                     className={`w-full py-2.5 px-4 text-sm sm:text-base rounded-lg transition-all duration-200 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white shadow-sm hover:shadow-md`} // Keep red for contrast?
                   >
@@ -1436,7 +1534,7 @@ export default function Home() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                           {/* Text color implicitly handled by parent */}
-                          <span>选择颜色/橡皮擦，点击画布格子上色</span>
+                          <span>选择颜色/橡皮擦/一键擦除，点击画布格子上色</span>
                         </div>
                         {/* Separator color */}
                         <span className="hidden sm:inline text-gray-300 dark:text-gray-500">|</span>
@@ -1467,6 +1565,8 @@ export default function Home() {
                       onColorSelect={setSelectedColor}
                       transparentKey={TRANSPARENT_KEY}
                       selectedColorSystem={selectedColorSystem}
+                      isEraseMode={isEraseMode}
+                      onEraseToggle={handleEraseToggle}
                     />
                   </div>
                 </div>

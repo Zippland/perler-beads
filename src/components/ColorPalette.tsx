@@ -16,6 +16,9 @@ interface ColorPaletteProps {
   onColorSelect: (colorData: ColorData) => void;
   transparentKey?: string; // 添加可选参数，用于识别哪个是透明/橡皮擦
   selectedColorSystem?: ColorSystem; // 添加色号系统参数
+  // 新增：一键擦除相关props
+  isEraseMode?: boolean;
+  onEraseToggle?: () => void;
 }
 
 const ColorPalette: React.FC<ColorPaletteProps> = ({ 
@@ -23,7 +26,9 @@ const ColorPalette: React.FC<ColorPaletteProps> = ({
   selectedColor, 
   onColorSelect,
   transparentKey,
-  selectedColorSystem
+  selectedColorSystem,
+  isEraseMode,
+  onEraseToggle
 }) => {
   if (!colors || colors.length === 0) {
     // Apply dark mode text color
@@ -33,6 +38,31 @@ const ColorPalette: React.FC<ColorPaletteProps> = ({
   return (
     // Apply dark mode styles to the container
     <div className="flex flex-wrap justify-center gap-2 p-2 bg-white dark:bg-gray-900 rounded border border-blue-200 dark:border-gray-700">
+      {/* 一键擦除按钮 */}
+      {onEraseToggle && (
+        <button
+          onClick={onEraseToggle}
+          className={`w-8 h-8 rounded border-2 flex-shrink-0 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 dark:focus:ring-blue-500 flex items-center justify-center ${
+            isEraseMode
+              ? 'border-red-500 bg-red-100 dark:bg-red-900 ring-2 ring-offset-1 ring-red-400 dark:ring-red-500 scale-110 shadow-md'
+              : 'border-orange-300 dark:border-orange-600 bg-orange-100 dark:bg-orange-800 hover:border-orange-500 dark:hover:border-orange-400'
+          }`}
+          title={isEraseMode ? '退出一键擦除模式' : '一键擦除 (洪水填充删除相同颜色)'}
+          aria-label={isEraseMode ? '退出一键擦除模式' : '开启一键擦除模式'}
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className={`h-5 w-5 ${isEraseMode ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}`} 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor" 
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      )}
+      
       {colors.map((colorData) => {
         // 检查当前颜色是否是透明/橡皮擦
         const isTransparent = transparentKey && colorData.key === transparentKey;
