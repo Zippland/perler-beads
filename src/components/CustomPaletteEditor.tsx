@@ -3,13 +3,39 @@
 import React, { useState, useEffect } from 'react';
 import { PaletteColor } from '../utils/pixelation';
 import { PaletteSelections } from '../utils/localStorageUtils';
+import { getDisplayColorKey, ColorSystem } from '../utils/colorSystemUtils';
 
 // 对颜色进行分组的工具函数，按前缀分组
-function groupColorsByPrefix(colors: PaletteColor[]): Record<string, PaletteColor[]> {
+function groupColorsByPrefix(colors: PaletteColor[], selectedColorSystem: ColorSystem): Record<string, PaletteColor[]> {
   const groups: Record<string, PaletteColor[]> = {};
   
   colors.forEach(color => {
-    const prefix = color.key.match(/^[A-Z]+/)?.[0] || '其他';
+    const displayKey = getDisplayColorKey(color.key, selectedColorSystem);
+    
+    let prefix: string;
+    if (selectedColorSystem === '盼盼' || selectedColorSystem === '咪小窝') {
+      // 对于纯数字的色号系统，按数字范围分组
+      if (/^\d+$/.test(displayKey)) {
+        const num = parseInt(displayKey, 10);
+        if (num <= 20) {
+          prefix = '1-20';
+        } else if (num <= 50) {
+          prefix = '21-50';
+        } else if (num <= 100) {
+          prefix = '51-100';
+        } else if (num <= 200) {
+          prefix = '101-200';
+        } else {
+          prefix = '200+';
+        }
+      } else {
+        prefix = '其他';
+      }
+    } else {
+      // 对于有字母前缀的色号系统，按字母前缀分组
+      prefix = displayKey.match(/^[A-Z]+/)?.[0] || '其他';
+    }
+    
     if (!groups[prefix]) {
       groups[prefix] = [];
     }
@@ -19,9 +45,20 @@ function groupColorsByPrefix(colors: PaletteColor[]): Record<string, PaletteColo
   // 对每个组内的颜色按键进行排序
   Object.keys(groups).forEach(prefix => {
     groups[prefix].sort((a, b) => {
-      const numA = parseInt(a.key.replace(/^[A-Z]+/, ''), 10) || 0;
-      const numB = parseInt(b.key.replace(/^[A-Z]+/, ''), 10) || 0;
-      return numA - numB;
+      const displayKeyA = getDisplayColorKey(a.key, selectedColorSystem);
+      const displayKeyB = getDisplayColorKey(b.key, selectedColorSystem);
+      
+      if (selectedColorSystem === '盼盼' || selectedColorSystem === '咪小窝') {
+        // 对于纯数字色号，按数字大小排序
+        const numA = parseInt(displayKeyA, 10) || 0;
+        const numB = parseInt(displayKeyB, 10) || 0;
+        return numA - numB;
+      } else {
+        // 对于有字母前缀的色号，按字母+数字排序
+        const numA = parseInt(displayKeyA.replace(/^[A-Z]+/, ''), 10) || 0;
+        const numB = parseInt(displayKeyB.replace(/^[A-Z]+/, ''), 10) || 0;
+        return numA - numB;
+      }
     });
   });
   
@@ -38,6 +75,7 @@ interface CustomPaletteEditorProps {
   paletteOptions: Record<string, { name: string; keys: string[] }>;
   onExportCustomPalette: () => void;
   onImportCustomPalette: () => void;
+  selectedColorSystem: ColorSystem;
 }
 
 const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
@@ -50,6 +88,7 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
   paletteOptions,
   onExportCustomPalette,
   onImportCustomPalette,
+  selectedColorSystem,
 }) => {
   // 用于跟踪当前展开的颜色组
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -64,13 +103,16 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
   
   // 根据搜索词过滤颜色
   const filteredColors = searchTerm 
-    ? allColors.filter(color => 
-        color.key.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+    ? allColors.filter(color => {
+        const originalKey = color.key.toLowerCase();
+        const displayKey = getDisplayColorKey(color.key, selectedColorSystem).toLowerCase();
+        const searchLower = searchTerm.toLowerCase();
+        return originalKey.includes(searchLower) || displayKey.includes(searchLower);
+      })
     : allColors;
   
   // 对过滤后的颜色进行分组
-  const colorGroups = groupColorsByPrefix(filteredColors);
+  const colorGroups = groupColorsByPrefix(filteredColors, selectedColorSystem);
   
   // 切换组展开状态
   const toggleGroup = (prefix: string) => {
@@ -263,7 +305,7 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
                       className="w-6 h-6 rounded-sm border border-gray-300 dark:border-gray-600 flex-shrink-0"
                       style={{ backgroundColor: color.hex }}
                     />
-                    <span className="text-sm text-gray-800 dark:text-gray-200">{color.key}</span>
+                    <span className="text-sm text-gray-800 dark:text-gray-200">{getDisplayColorKey(color.key, selectedColorSystem)}</span>
                   </label>
                 ))}
               </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { getDisplayColorKey, ColorSystem } from '../utils/colorSystemUtils';
 
 // Define the structure of the color data expected by the palette
 interface ColorData {
@@ -14,13 +15,15 @@ interface ColorPaletteProps {
   selectedColor: ColorData | null;
   onColorSelect: (colorData: ColorData) => void;
   transparentKey?: string; // 添加可选参数，用于识别哪个是透明/橡皮擦
+  selectedColorSystem?: ColorSystem; // 添加色号系统参数
 }
 
 const ColorPalette: React.FC<ColorPaletteProps> = ({ 
   colors, 
   selectedColor, 
   onColorSelect,
-  transparentKey 
+  transparentKey,
+  selectedColorSystem
 }) => {
   if (!colors || colors.length === 0) {
     // Apply dark mode text color
@@ -49,8 +52,8 @@ const ColorPalette: React.FC<ColorPaletteProps> = ({
             style={isTransparent ? {} : { backgroundColor: colorData.color }}
             title={isTransparent 
               ? '选择橡皮擦 (清除单元格)' 
-              : `选择 ${colorData.key} (${colorData.color})`}
-            aria-label={isTransparent ? '选择橡皮擦' : `选择颜色 ${colorData.key}`}
+              : `选择 ${selectedColorSystem ? getDisplayColorKey(colorData.key, selectedColorSystem) : colorData.key} (${colorData.color})`}
+            aria-label={isTransparent ? '选择橡皮擦' : `选择颜色 ${selectedColorSystem ? getDisplayColorKey(colorData.key, selectedColorSystem) : colorData.key}`}
           >
             {/* 如果是透明/橡皮擦按钮，显示叉号图标 */}
             {isTransparent && (

@@ -1,5 +1,6 @@
 import { GridDownloadOptions } from '../types/downloadTypes';
 import { MappedPixel, PaletteColor } from './pixelation';
+import { getDisplayColorKey, ColorSystem } from './colorSystemUtils';
 
 // 用于获取对比色的工具函数 - 从page.tsx复制
 function getContrastColor(hex: string): string {
@@ -53,7 +54,8 @@ export function downloadImage({
   totalBeadCount,
   options,
   activeBeadPalette,
-  selectedPaletteKeySet
+  selectedPaletteKeySet,
+  selectedColorSystem
 }: {
   mappedPixelData: MappedPixel[][] | null;
   gridDimensions: { N: number; M: number } | null;
@@ -62,6 +64,7 @@ export function downloadImage({
   options: GridDownloadOptions;
   activeBeadPalette: PaletteColor[];
   selectedPaletteKeySet: string;
+  selectedColorSystem: ColorSystem;
 }): void {
   if (!mappedPixelData || !gridDimensions || gridDimensions.N === 0 || gridDimensions.M === 0 || activeBeadPalette.length === 0) {
     console.error("下载失败: 映射数据或尺寸无效。");
@@ -336,7 +339,7 @@ export function downloadImage({
         if (cellData && !cellData.isExternal) {
           // 内部单元格：使用珠子颜色填充并绘制文本
           const cellColor = cellData.color || '#FFFFFF';
-          const cellKey = cellData.key || '?';
+          const cellKey = getDisplayColorKey(cellData.key || '?', selectedColorSystem);
 
           ctx.fillStyle = cellColor;
           ctx.fillRect(drawX, drawY, downloadCellSize, downloadCellSize);
@@ -460,7 +463,7 @@ export function downloadImage({
         // 绘制色号
         ctx.fillStyle = '#333333';
         ctx.textAlign = 'left';
-        ctx.fillText(key, itemX + swatchSize + 5, rowY);
+        ctx.fillText(getDisplayColorKey(key, selectedColorSystem), itemX + swatchSize + 5, rowY);
         
         // 绘制数量 - 在每个项目的右侧
         const countText = `${cellData.count} 颗`;

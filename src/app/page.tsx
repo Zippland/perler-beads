@@ -21,6 +21,12 @@ import DownloadSettingsModal, { gridLineColorOptions } from '../components/Downl
 import { downloadImage } from '../utils/imageDownloader';
 
 import beadPaletteData from './beadPaletteData.json';
+import { 
+  colorSystemOptions, 
+  convertPaletteToColorSystem, 
+  getDisplayColorKey,
+  ColorSystem 
+} from '../utils/colorSystemUtils';
 
 // 添加自定义动画样式
 const floatAnimation = `
@@ -108,7 +114,7 @@ const TRANSPARENT_KEY = 'ERASE';
 const transparentColorData: MappedPixel = { key: TRANSPARENT_KEY, color: '#FFFFFF', isExternal: true };
 
 // ++ Add definition for background color keys ++
-const BACKGROUND_COLOR_KEYS = ['T1', 'H1', 'H2']; // 可以根据需要调整
+const BACKGROUND_COLOR_KEYS = ['T01', 'H01', 'H02']; // 修正为与映射表一致的格式
 
 // 1. 导入新组件
 import PixelatedPreviewCanvas from '../components/PixelatedPreviewCanvas';
@@ -128,6 +134,10 @@ export default function Home() {
   // 添加像素化模式状态
   const [pixelationMode, setPixelationMode] = useState<PixelationMode>(PixelationMode.Dominant); // 默认为卡通模式
   const [selectedPaletteKeySet, setSelectedPaletteKeySet] = useState<PaletteOptionKey>('all');
+  
+  // 新增：色号系统选择状态
+  const [selectedColorSystem, setSelectedColorSystem] = useState<ColorSystem>('MARD');
+  
   const [activeBeadPalette, setActiveBeadPalette] = useState<PaletteColor[]>(() => {
       const initialKey = 'all'; // Match the key used above
       const options = paletteOptions[initialKey];
@@ -184,8 +194,10 @@ export default function Home() {
       const isNotExcluded = !excludedColorKeys.has(color.key);
       return isInSelectedPalette && isNotExcluded;
     });
-    setActiveBeadPalette(newActiveBeadPalette);
-  }, [selectedPaletteKeySet, excludedColorKeys, remapTrigger]); 
+    // 根据选择的色号系统转换调色板
+    const convertedPalette = convertPaletteToColorSystem(newActiveBeadPalette, selectedColorSystem);
+    setActiveBeadPalette(convertedPalette);
+  }, [selectedPaletteKeySet, excludedColorKeys, remapTrigger, selectedColorSystem]);
 
   // ++ 添加：当状态变化时同步更新输入框的值 ++
   useEffect(() => {
@@ -204,8 +216,14 @@ export default function Home() {
       }
     });
     // Sort colors like the stats list, if desired
-    return Array.from(uniqueColorsMap.values()).sort((a, b) => sortColorKeys(a.key, b.key));
-  }, [mappedPixelData]); // Recalculate when pixel data changes
+    const originalColors = Array.from(uniqueColorsMap.values()).sort((a, b) => sortColorKeys(a.key, b.key));
+    
+    // 转换色号系统
+    return originalColors.map(color => ({
+      ...color,
+      key: getDisplayColorKey(color.key, selectedColorSystem)
+    }));
+  }, [mappedPixelData, selectedColorSystem]); // 添加selectedColorSystem到依赖项
 
   // 初始化时从本地存储加载自定义色板选择
   useEffect(() => {
@@ -232,8 +250,10 @@ export default function Home() {
       const isNotExcluded = !excludedColorKeys.has(color.key);
       return isSelectedInCustomPalette && isNotExcluded;
     });
-    setActiveBeadPalette(newActiveBeadPalette);
-  }, [customPaletteSelections, excludedColorKeys, remapTrigger]);
+    // 根据选择的色号系统转换调色板
+    const convertedPalette = convertPaletteToColorSystem(newActiveBeadPalette, selectedColorSystem);
+    setActiveBeadPalette(convertedPalette);
+  }, [customPaletteSelections, excludedColorKeys, remapTrigger, selectedColorSystem]);
 
   // --- Event Handlers ---
 
@@ -607,10 +627,12 @@ export default function Home() {
         let totalCount = 0;
         mergedData.flat().forEach(cell => {
           if (cell && cell.key && !cell.isExternal) {
-            if (!counts[cell.key]) {
-              counts[cell.key] = { count: 0, color: cell.color };
+            // 使用显示的色号作为统计键值
+            const displayKey = cell.key;
+            if (!counts[displayKey]) {
+              counts[displayKey] = { count: 0, color: cell.color };
             }
-            counts[cell.key].count++;
+            counts[displayKey].count++;
             totalCount++;
           }
         });
@@ -674,7 +696,8 @@ export default function Home() {
           totalBeadCount,
           options: options || downloadOptions,
           activeBeadPalette,
-          selectedPaletteKeySet
+          selectedPaletteKeySet,
+          selectedColorSystem
         });
     };
 
@@ -1084,6 +1107,12 @@ export default function Home() {
     importPaletteInputRef.current?.click();
   };
 
+  // 色号系统选择处理函数
+  const handleColorSystemChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const newColorSystem = event.target.value as ColorSystem;
+    setSelectedColorSystem(newColorSystem);
+  };
+
   return (
     <>
     {/* 添加自定义动画样式 */}
@@ -1310,6 +1339,23 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* 色号系统选择器 */}
+                <div className="sm:col-span-2">
+                  <label htmlFor="colorSystemSelect" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">色号系统:</label>
+                  <select
+                    id="colorSystemSelect"
+                    value={selectedColorSystem}
+                    onChange={handleColorSystemChange}
+                    className="w-full p-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 h-9 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200"
+                  >
+                    {colorSystemOptions.map(option => (
+                      <option key={option.key} value={option.key} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200">
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* 自定义色板按钮 */}
                 <div className="sm:col-span-2 mt-3">
                   <button
@@ -1352,6 +1398,7 @@ export default function Home() {
                       // ++ 传递新的处理函数 ++
                       onExportCustomPalette={handleExportCustomPalette}
                       onImportCustomPalette={triggerImportPalette}
+                      selectedColorSystem={selectedColorSystem}
                     />
                   </div>
                 </div>
@@ -1419,6 +1466,7 @@ export default function Home() {
                       selectedColor={selectedColor}
                       onColorSelect={setSelectedColor}
                       transparentKey={TRANSPARENT_KEY}
+                      selectedColorSystem={selectedColorSystem}
                     />
                   </div>
                 </div>
@@ -1481,7 +1529,7 @@ export default function Home() {
                           style={{ backgroundColor: isExcluded ? '#666' : colorHex }} // Darker gray for excluded swatch
                         ></span>
                         {/* Adjust text color for key (normal and excluded) */}
-                        <span className={`font-mono font-medium ${isExcluded ? 'text-red-700 dark:text-red-400' : 'text-gray-800 dark:text-gray-200'}`}>{key}</span>
+                        <span className={`font-mono font-medium ${isExcluded ? 'text-red-700 dark:text-red-400' : 'text-gray-800 dark:text-gray-200'}`}>{getDisplayColorKey(key, selectedColorSystem)}</span>
                       </div>
                       {/* Adjust text color for count (normal and excluded) */}
                       <span className={`text-xs ${isExcluded ? 'text-red-600 dark:text-red-400 line-through' : 'text-gray-600 dark:text-gray-300'}`}>{count} 颗</span>
@@ -1521,7 +1569,7 @@ export default function Home() {
                                       className="inline-block w-4 h-4 rounded border border-gray-400 dark:border-gray-500 flex-shrink-0"
                                       style={{ backgroundColor: colorData?.hex || '#666666' }}
                                     ></span>
-                                    <span className="font-mono text-xs text-gray-800 dark:text-gray-200">{key}</span>
+                                    <span className="font-mono text-xs text-gray-800 dark:text-gray-200">{getDisplayColorKey(key, selectedColorSystem)}</span>
                                   </div>
                                   <button
                                     onClick={() => {
@@ -1630,7 +1678,7 @@ export default function Home() {
 
          {/* Tooltip Display (Needs update in GridTooltip.tsx) */}
          {tooltipData && (
-            <GridTooltip tooltipData={tooltipData} />
+            <GridTooltip tooltipData={tooltipData} selectedColorSystem={selectedColorSystem} />
           )}
       </main>
 

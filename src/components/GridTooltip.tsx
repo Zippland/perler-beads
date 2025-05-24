@@ -1,4 +1,5 @@
 import React from 'react';
+import { getDisplayColorKey, ColorSystem } from '../utils/colorSystemUtils';
 
 interface TooltipData {
   x: number;
@@ -9,9 +10,10 @@ interface TooltipData {
 
 interface GridTooltipProps {
   tooltipData: TooltipData | null;
+  selectedColorSystem?: ColorSystem;
 }
 
-const GridTooltip: React.FC<GridTooltipProps> = ({ tooltipData }) => {
+const GridTooltip: React.FC<GridTooltipProps> = ({ tooltipData, selectedColorSystem = 'MARD' }) => {
   if (!tooltipData) return null;
 
   return (
@@ -28,7 +30,7 @@ const GridTooltip: React.FC<GridTooltipProps> = ({ tooltipData }) => {
         className="inline-block w-3 h-3 rounded-sm border border-gray-400 dark:border-gray-500 flex-shrink-0"
         style={{ backgroundColor: tooltipData.color }}
       ></span>
-      <span className="font-mono font-semibold">{tooltipData.key}</span>
+      <span className="font-mono font-semibold">{getDisplayColorKey(tooltipData.key, selectedColorSystem)}</span>
     </div>
   );
 };
