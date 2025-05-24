@@ -114,7 +114,6 @@ const TRANSPARENT_KEY = 'ERASE';
 const transparentColorData: MappedPixel = { key: TRANSPARENT_KEY, color: '#FFFFFF', isExternal: true };
 
 // ++ Add definition for background color keys ++
-const BACKGROUND_COLOR_KEYS = ['T01', 'H01', 'H02']; // 修正为与映射表一致的格式
 
 // 1. 导入新组件
 import PixelatedPreviewCanvas from '../components/PixelatedPreviewCanvas';
@@ -482,14 +481,14 @@ export default function Home() {
         keyToColorDataMap.set(p.key, p);
       });
 
-      // 2. 统计初始颜色数量 (排除背景色)
+      // 2. 统计初始颜色数量
       const initialColorCounts: { [key: string]: number } = {};
       initialMappedData.flat().forEach(cell => {
-          if (cell && cell.key && !BACKGROUND_COLOR_KEYS.includes(cell.key)) {
+          if (cell && cell.key) {
               initialColorCounts[cell.key] = (initialColorCounts[cell.key] || 0) + 1;
           }
       });
-      console.log("Initial color counts (excluding background):", initialColorCounts);
+      console.log("Initial color counts:", initialColorCounts);
 
       // 3. 创建一个颜色排序列表，按出现频率从高到低排序
       const colorsByFrequency = Object.entries(initialColorCounts)
@@ -574,66 +573,6 @@ export default function Home() {
           console.log("No colors were similar enough to merge.");
       }
       // --- 结束新的全局颜色合并逻辑 ---
-      
-      console.log("Global color merging complete. Starting background removal.");
-
-      // --- Flood Fill Background Process ---
-      // ... 保持洪水填充算法不变，但在mergedData上操作 ...
-      const visitedForFloodFill: boolean[][] = Array(M).fill(null).map(() => Array(N).fill(false));
-
-      // 将递归的floodFill改为迭代实现，使用队列避免栈溢出
-      const iterativeFloodFill = (startR: number, startC: number) => {
-          // 先检查起始点是否有效
-          if (startR < 0 || startR >= M || startC < 0 || startC >= N || 
-              visitedForFloodFill[startR][startC]) {
-              return;
-          }
-          
-          const startCell = mergedData[startR]?.[startC];
-          if (!startCell || !BACKGROUND_COLOR_KEYS.includes(startCell.key)) {
-              return;
-          }
-
-          const queue: { r: number; c: number }[] = [{ r: startR, c: startC }];
-          visitedForFloodFill[startR][startC] = true;
-          startCell.isExternal = true;
-
-          while (queue.length > 0) {
-              const { r, c } = queue.shift()!;
-              
-              // 检查四个方向的邻居
-              const neighbors = [
-                  { nr: r + 1, nc: c },
-                  { nr: r - 1, nc: c },
-                  { nr: r, nc: c + 1 },
-                  { nr: r, nc: c - 1 }
-              ];
-
-              for (const { nr, nc } of neighbors) {
-                  // 检查边界和访问状态
-                  if (nr >= 0 && nr < M && nc >= 0 && nc < N && !visitedForFloodFill[nr][nc]) {
-                      const neighborCell = mergedData[nr]?.[nc];
-                      // 检查是否是背景色
-                      if (neighborCell && BACKGROUND_COLOR_KEYS.includes(neighborCell.key)) {
-                          visitedForFloodFill[nr][nc] = true;
-                          neighborCell.isExternal = true;
-                          queue.push({ r: nr, c: nc });
-                      }
-                  }
-              }
-          }
-      };
-
-      // 保留原始的循环，但改用迭代版本的flood fill
-      for (let i = 0; i < N; i++) {
-          if (!visitedForFloodFill[0][i] && mergedData[0]?.[i] && BACKGROUND_COLOR_KEYS.includes(mergedData[0][i].key)) iterativeFloodFill(0, i);
-          if (!visitedForFloodFill[M - 1][i] && mergedData[M - 1]?.[i] && BACKGROUND_COLOR_KEYS.includes(mergedData[M - 1][i].key)) iterativeFloodFill(M - 1, i);
-      }
-      for (let j = 0; j < M; j++) {
-          if (!visitedForFloodFill[j][0] && mergedData[j]?.[0] && BACKGROUND_COLOR_KEYS.includes(mergedData[j][0].key)) iterativeFloodFill(j, 0);
-          if (!visitedForFloodFill[j][N - 1] && mergedData[j]?.[N - 1] && BACKGROUND_COLOR_KEYS.includes(mergedData[j][N - 1].key)) iterativeFloodFill(j, N - 1);
-      }
-      console.log("Background flood fill marking complete.");
 
       // --- 绘制和状态更新 ---
       if (pixelatedCanvasRef.current) {
@@ -656,8 +595,8 @@ export default function Home() {
         setColorCounts(counts);
         setTotalBeadCount(totalCount);
         setInitialGridColorKeys(new Set(Object.keys(counts)));
-        console.log("Color counts updated based on merged data (excluding external background):", counts);
-        console.log("Total bead count (excluding background):", totalCount);
+        console.log("Color counts updated based on merged data (after merging):", counts);
+        console.log("Total bead count (total beads):", totalCount);
         console.log("Stored initial grid color keys:", Object.keys(counts));
       } else {
         console.error("Pixelated canvas ref is null, skipping draw call in pixelateImage.");
