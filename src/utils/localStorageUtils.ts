@@ -55,11 +55,25 @@ export function presetKeysToHexSelections(
 ): PaletteSelections {
   const presetKeySet = new Set(presetKeys);
   const selections: PaletteSelections = {};
+  const processedHexValues = new Set<string>();
+  
+  console.log(`presetKeysToHexSelections: 输入调色板大小 ${allBeadPalette.length}, 预设键数量 ${presetKeys.length}`);
   
   allBeadPalette.forEach(color => {
     const normalizedHex = color.hex.toUpperCase();
+    
+    // 检查是否已经处理过这个hex值
+    if (processedHexValues.has(normalizedHex)) {
+      console.warn(`重复的hex值: ${normalizedHex}, MARD键: ${color.key}`);
+      return; // 跳过重复的hex值
+    }
+    
+    processedHexValues.add(normalizedHex);
     selections[normalizedHex] = presetKeySet.has(color.key);
   });
+  
+  const selectedCount = Object.values(selections).filter(Boolean).length;
+  console.log(`presetKeysToHexSelections: 生成选择对象，总数 ${Object.keys(selections).length}, 选中 ${selectedCount}`);
   
   return selections;
 } 
