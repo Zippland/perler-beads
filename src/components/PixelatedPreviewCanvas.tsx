@@ -32,7 +32,7 @@ const drawPixelatedCanvas = (
     console.warn("drawPixelatedCanvas: Missing required parameters");
     return;
   }
-
+  
   const pixelatedCtx = canvas.getContext('2d');
   if (!pixelatedCtx) {
     console.error("Failed to get 2D context for pixelated canvas");
@@ -72,8 +72,17 @@ const drawPixelatedCanvas = (
       pixelatedCtx.fillRect(drawX, drawY, cellWidthOutput, cellHeightOutput);
 
       // 如果正在高亮且当前单元格不是目标颜色，添加半透明黑色蒙版
-      if (isHighlighting && highlightColorKey && !cellData.isExternal) {
-        const shouldDim = cellData.color.toUpperCase() !== highlightColorKey.toUpperCase();
+      if (isHighlighting && highlightColorKey) {
+        let shouldDim = false;
+        
+        if (cellData.isExternal) {
+          // 外部单元格总是变深色（因为它们不是要高亮的颜色）
+          shouldDim = true;
+        } else {
+          // 内部单元格：如果颜色不匹配则变深色
+          shouldDim = cellData.color.toUpperCase() !== highlightColorKey.toUpperCase();
+        }
+        
         if (shouldDim) {
           pixelatedCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // 60% 透明度的黑色蒙版
           pixelatedCtx.fillRect(drawX, drawY, cellWidthOutput, cellHeightOutput);

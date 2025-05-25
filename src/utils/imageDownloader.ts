@@ -337,7 +337,7 @@ export async function downloadImage({
         if (cellData && !cellData.isExternal) {
           // 内部单元格：使用珠子颜色填充并绘制文本
           const cellColor = cellData.color || '#FFFFFF';
-          const cellKey = getDisplayColorKey(cellData.key || '?', selectedColorSystem);
+          const cellKey = getDisplayColorKey(cellData.color || '#FFFFFF', selectedColorSystem);
 
           ctx.fillStyle = cellColor;
           ctx.fillRect(drawX, drawY, downloadCellSize, downloadCellSize);

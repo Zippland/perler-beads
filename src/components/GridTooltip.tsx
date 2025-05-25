@@ -30,7 +30,7 @@ const GridTooltip: React.FC<GridTooltipProps> = ({ tooltipData, selectedColorSys
         className="inline-block w-3 h-3 rounded-sm border border-gray-400 dark:border-gray-500 flex-shrink-0"
         style={{ backgroundColor: tooltipData.color }}
       ></span>
-      <span className="font-mono font-semibold">{getDisplayColorKey(tooltipData.key, selectedColorSystem)}</span>
+      <span className="font-mono font-semibold">{getDisplayColorKey(tooltipData.color, selectedColorSystem)}</span>
     </div>
   );
 };

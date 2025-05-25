@@ -10,7 +10,7 @@ function groupColorsByPrefix(colors: PaletteColor[], selectedColorSystem: ColorS
   const groups: Record<string, PaletteColor[]> = {};
   
   colors.forEach(color => {
-    const displayKey = getDisplayColorKey(color.key, selectedColorSystem);
+    const displayKey = getDisplayColorKey(color.hex, selectedColorSystem);
     
     let prefix: string;
     if (selectedColorSystem === '盼盼' || selectedColorSystem === '咪小窝') {
@@ -45,8 +45,8 @@ function groupColorsByPrefix(colors: PaletteColor[], selectedColorSystem: ColorS
   // 对每个组内的颜色按键进行排序
   Object.keys(groups).forEach(prefix => {
     groups[prefix].sort((a, b) => {
-      const displayKeyA = getDisplayColorKey(a.key, selectedColorSystem);
-      const displayKeyB = getDisplayColorKey(b.key, selectedColorSystem);
+      const displayKeyA = getDisplayColorKey(a.hex, selectedColorSystem);
+      const displayKeyB = getDisplayColorKey(b.hex, selectedColorSystem);
       
       if (selectedColorSystem === '盼盼' || selectedColorSystem === '咪小窝') {
         // 对于纯数字色号，按数字大小排序
@@ -57,7 +57,7 @@ function groupColorsByPrefix(colors: PaletteColor[], selectedColorSystem: ColorS
         // 对于有字母前缀的色号，按字母+数字排序
         const numA = parseInt(displayKeyA.replace(/^[A-Z]+/, ''), 10) || 0;
         const numB = parseInt(displayKeyB.replace(/^[A-Z]+/, ''), 10) || 0;
-        return numA - numB;
+      return numA - numB;
       }
     });
   });
@@ -101,7 +101,7 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
   const filteredColors = searchTerm 
     ? allColors.filter(color => {
         const originalKey = color.key.toLowerCase();
-        const displayKey = getDisplayColorKey(color.key, selectedColorSystem).toLowerCase();
+        const displayKey = getDisplayColorKey(color.hex, selectedColorSystem).toLowerCase();
         const searchLower = searchTerm.toLowerCase();
         return originalKey.includes(searchLower) || displayKey.includes(searchLower);
       })
@@ -154,19 +154,19 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
       
       {/* 搜索框 */}
       <div className="mb-4">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="搜索色号..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 pl-9 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="搜索色号..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 pl-9 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
         </div>
       </div>
       
@@ -282,7 +282,7 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
                       className="w-6 h-6 rounded-sm border border-gray-300 dark:border-gray-600 flex-shrink-0"
                       style={{ backgroundColor: color.hex }}
                     />
-                    <span className="text-sm text-gray-800 dark:text-gray-200">{getDisplayColorKey(color.key, selectedColorSystem)}</span>
+                    <span className="text-sm text-gray-800 dark:text-gray-200">{getDisplayColorKey(color.hex, selectedColorSystem)}</span>
                   </label>
                 ))}
               </div>

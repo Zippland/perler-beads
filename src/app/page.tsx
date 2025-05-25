@@ -240,16 +240,16 @@ export default function Home() {
       
       if (hasValidData) {
         setCustomPaletteSelections(validSelections);
-        setIsCustomPalette(true);
-      } else {
+      setIsCustomPalette(true);
+    } else {
         console.log('所有数据都无效，清除localStorage并重新初始化');
         // 如果本地数据无效，清除localStorage并默认选择所有颜色
         localStorage.removeItem('customPerlerPaletteSelections');
         const allHexValues = fullBeadPalette.map(color => color.hex.toUpperCase());
         const initialSelections = presetToSelections(allHexValues, allHexValues);
-        setCustomPaletteSelections(initialSelections);
-        setIsCustomPalette(false);
-      }
+      setCustomPaletteSelections(initialSelections);
+      setIsCustomPalette(false);
+    }
     } else {
       console.log('没有localStorage数据，默认选择所有颜色');
       // 如果没有保存的选择，默认选择所有颜色
@@ -725,12 +725,12 @@ export default function Home() {
             // 查找被排除颜色的RGB值用于重映射
             const excludedColorData = fullBeadPalette.find(p => p.hex.toUpperCase() === hexKey);
             // 检查排除颜色的数据是否存在
-            if (!excludedColorData || !mappedPixelData || !gridDimensions) {
-                console.error("Cannot exclude color: Missing data for remapping.");
-                alert("无法排除颜色，缺少必要数据。");
+             if (!excludedColorData || !mappedPixelData || !gridDimensions) {
+                 console.error("Cannot exclude color: Missing data for remapping.");
+                 alert("无法排除颜色，缺少必要数据。");
                 console.log("---------");
-                return;
-            }
+                 return;
+             }
 
             console.log(`Remapping cells currently using excluded color: ${hexKey}`);
             // 仅在需要重映射时创建深拷贝
@@ -741,19 +741,19 @@ export default function Home() {
 
             for (let j = 0; j < M; j++) {
                 for (let i = 0; i < N; i++) {
-                    const cell = newMappedData[j]?.[i];
+                const cell = newMappedData[j]?.[i];
                     // 此条件正确地仅针对具有排除hex值的单元格
                     if (cell && !cell.isExternal && cell.color.toUpperCase() === hexKey) {
                         // *** 使用派生的 remapTargetPalette 查找最接近的颜色 ***
-                        const replacementColor = findClosestPaletteColor(excludedColorData.rgb, remapTargetPalette);
+                    const replacementColor = findClosestPaletteColor(excludedColorData.rgb, remapTargetPalette);
                         if (!firstReplacementHex) firstReplacementHex = replacementColor.hex;
                         newMappedData[j][i] = { 
                             ...cell, 
                             key: replacementColor.key, 
                             color: replacementColor.hex 
                         };
-                        remappedCount++;
-                    }
+                    remappedCount++;
+                }
                 }
             }
             console.log(`Remapped ${remappedCount} cells. First replacement hex found was: ${firstReplacementHex || 'N/A'}`);
@@ -770,7 +770,7 @@ export default function Home() {
                     const cellHex = cell.color.toUpperCase();
                     if (!newCounts[cellHex]) {
                         newCounts[cellHex] = { count: 0, color: cellHex };
-                    }
+                }
                     newCounts[cellHex].count++;
                     newTotalCount++;
                 }
@@ -782,10 +782,10 @@ export default function Home() {
 
             // ++ 在更新状态后，重新绘制 Canvas ++
             if (pixelatedCanvasRef.current && gridDimensions) {
-                setMappedPixelData(newMappedData);
-                // 不要调用 setGridDimensions，因为颜色排除不需要改变网格尺寸
+              setMappedPixelData(newMappedData);
+              // 不要调用 setGridDimensions，因为颜色排除不需要改变网格尺寸
             } else {
-                console.error("Canvas ref or grid dimensions missing, skipping draw call in handleToggleExcludeColor.");
+               console.error("Canvas ref or grid dimensions missing, skipping draw call in handleToggleExcludeColor.");
             }
 
         } else {
@@ -962,8 +962,8 @@ export default function Home() {
                 newColorCounts[previousHex].count--;
                 if (newColorCounts[previousHex].count <= 0) {
                   delete newColorCounts[previousHex];
-                }
-                newTotalCount--;
+              }
+              newTotalCount--;
               }
             }
 
@@ -1122,7 +1122,7 @@ export default function Home() {
         }
 
         console.log("检测到基于hex值的色板文件");
-        
+
         const importedHexValues = data.selectedHexValues as string[];
         const validHexValues: string[] = [];
         const invalidHexValues: string[] = [];
@@ -1794,6 +1794,7 @@ export default function Home() {
          {tooltipData && (
             <GridTooltip tooltipData={tooltipData} selectedColorSystem={selectedColorSystem} />
           )}
+
       </main>
 
       {/* Apply dark mode styles to the Footer */}
