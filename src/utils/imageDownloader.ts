@@ -47,14 +47,13 @@ function sortColorKeys(a: string, b: string): number {
 }
 
 // 下载图片的主函数
-export function downloadImage({
+export async function downloadImage({
   mappedPixelData,
   gridDimensions,
   colorCounts,
   totalBeadCount,
   options,
   activeBeadPalette,
-  selectedPaletteKeySet,
   selectedColorSystem
 }: {
   mappedPixelData: MappedPixel[][] | null;
@@ -63,9 +62,8 @@ export function downloadImage({
   totalBeadCount: number;
   options: GridDownloadOptions;
   activeBeadPalette: PaletteColor[];
-  selectedPaletteKeySet: string;
   selectedColorSystem: ColorSystem;
-}): void {
+}): Promise<void> {
   if (!mappedPixelData || !gridDimensions || gridDimensions.N === 0 || gridDimensions.M === 0 || activeBeadPalette.length === 0) {
     console.error("下载失败: 映射数据或尺寸无效。");
     alert("无法下载图纸，数据未生成或无效。");
@@ -523,7 +521,7 @@ export function downloadImage({
     try {
       const dataURL = downloadCanvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = `bead-grid-${N}x${M}-keys-palette_${selectedPaletteKeySet}.png`; // 文件名包含调色板
+      link.download = `bead-grid-${N}x${M}-keys-palette_${selectedColorSystem}.png`; // 文件名包含色彩系统
       link.href = dataURL;
       document.body.appendChild(link);
       link.click();

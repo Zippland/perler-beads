@@ -69,10 +69,8 @@ interface CustomPaletteEditorProps {
   allColors: PaletteColor[];
   currentSelections: PaletteSelections;
   onSelectionChange: (key: string, isSelected: boolean) => void;
-  onApplyPreset: (presetKey: string) => void;
   onSaveCustomPalette: () => void;
   onClose: () => void;
-  paletteOptions: Record<string, { name: string; keys: string[] }>;
   onExportCustomPalette: () => void;
   onImportCustomPalette: () => void;
   selectedColorSystem: ColorSystem;
@@ -82,10 +80,8 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
   allColors,
   currentSelections,
   onSelectionChange,
-  onApplyPreset,
   onSaveCustomPalette,
   onClose,
-  paletteOptions,
   onExportCustomPalette,
   onImportCustomPalette,
   selectedColorSystem,
@@ -156,40 +152,21 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
         </button>
       </div>
       
-      {/* 搜索和预设 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-        <div>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="搜索色号..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 pl-9 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
+      {/* 搜索框 */}
+      <div className="mb-4">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="搜索色号..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 pl-9 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <select
-            onChange={(e) => {
-              if (e.target.value) {
-                onApplyPreset(e.target.value);
-              }
-            }}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500"
-            value=""
-          >
-            <option value="" disabled>选择预设色板...</option>
-            {Object.entries(paletteOptions).map(([key, { name }]) => (
-              <option key={key} value={key}>{name}</option>
-            ))}
-          </select>
         </div>
       </div>
       

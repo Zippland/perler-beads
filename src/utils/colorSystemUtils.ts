@@ -1,6 +1,5 @@
 import { PaletteColor } from './pixelation';
 import colorSystemMapping from '../app/colorSystemMapping.json';
-import beadPaletteData from '../app/beadPaletteData.json';
 
 // 定义色号系统类型并导出
 export type ColorSystem = 'MARD' | 'COCO' | '漫漫' | '盼盼' | '咪小窝';
@@ -17,7 +16,23 @@ export const colorSystemOptions = [
 // 类型定义
 type ColorMapping = Record<string, Record<ColorSystem, string>>;
 const typedColorSystemMapping = colorSystemMapping as ColorMapping;
-const typedBeadPaletteData = beadPaletteData as Record<string, string>;
+
+// 获取所有可用的hex值
+export function getAllHexValues(): string[] {
+  return Object.keys(typedColorSystemMapping);
+}
+
+// 获取所有MARD色号到hex值的映射（用于向后兼容）
+export function getMardToHexMapping(): Record<string, string> {
+  const mapping: Record<string, string> = {};
+  Object.entries(typedColorSystemMapping).forEach(([hex, colorData]) => {
+    const mardKey = colorData.MARD;
+    if (mardKey) {
+      mapping[mardKey] = hex;
+    }
+  });
+  return mapping;
+}
 
 // 从colorSystemMapping.json加载完整的颜色映射数据
 export function loadFullColorMapping(): Map<string, Record<ColorSystem, string>> {
@@ -45,44 +60,39 @@ export function convertPaletteToColorSystem(
   });
 }
 
-// 获取指定色号系统的显示键 - 重新设计的简化版本
-export function getDisplayColorKey(originalKey: string, colorSystem: ColorSystem): string {
+// 获取指定色号系统的显示键 - 基于hex值的简化版本
+export function getDisplayColorKey(hexValue: string, colorSystem: ColorSystem): string {
   // 对于特殊键（如透明键），直接返回原键
-  if (originalKey === 'ERASE' || originalKey.length === 0 || originalKey === '?') {
-    return originalKey;
+  if (hexValue === 'ERASE' || hexValue.length === 0 || hexValue === '?') {
+    return hexValue;
   }
   
-  // 如果目标色号系统就是MARD，直接返回原键
-  if (colorSystem === 'MARD') {
-    return originalKey;
-  }
+  // 标准化hex值（确保大写）
+  const normalizedHex = hexValue.toUpperCase();
   
-  // 1. 通过MARD色号从beadPaletteData获取hex值
-  const hexValue = typedBeadPaletteData[originalKey];
-  if (!hexValue) {
-    return originalKey; // 如果找不到对应的hex值，返回原键
-  }
-  
-  // 2. 通过hex值从colorSystemMapping获取目标色号系统的值
-  const colorMapping = typedColorSystemMapping[hexValue];
+  // 通过hex值从colorSystemMapping获取目标色号系统的值
+  const colorMapping = typedColorSystemMapping[normalizedHex];
   if (colorMapping && colorMapping[colorSystem]) {
     return colorMapping[colorSystem];
   }
   
-  return originalKey; // 如果找不到映射，返回原键
+  return '?'; // 如果找不到映射，返回 '?'
 }
 
-// 将色号键转换回基础系统（MARD）
-export function convertToBaseKey(displayKey: string, colorSystem: ColorSystem): string {
-  if (colorSystem === 'MARD') {
-    return displayKey;
+// 将色号键转换到hex值（支持任意色号系统）
+export function convertColorKeyToHex(displayKey: string, colorSystem: ColorSystem): string {
+  // 如果已经是hex值，直接返回
+  if (displayKey.startsWith('#') && displayKey.length === 7) {
+    return displayKey.toUpperCase();
   }
   
-  for (const [, mapping] of Object.entries(typedColorSystemMapping)) {
+  // 在colorSystemMapping中查找对应的hex值
+  for (const [hex, mapping] of Object.entries(typedColorSystemMapping)) {
     if (mapping[colorSystem] === displayKey) {
-      return mapping.MARD;
+      return hex;
     }
   }
+  
   return displayKey; // 如果找不到映射，返回原键
 }
 
@@ -103,6 +113,6 @@ export function getColorKeyByHex(hexValue: string, colorSystem: ColorSystem): st
     return mapping[colorSystem];
   }
   
-  // 如果找不到映射，返回 hex 值本身或者 '?'
+  // 如果找不到映射，返回 '?'
   return '?';
 } 

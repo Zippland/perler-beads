@@ -20,12 +20,11 @@ import { GridDownloadOptions } from '../types/downloadTypes';
 import DownloadSettingsModal, { gridLineColorOptions } from '../components/DownloadSettingsModal';
 import { downloadImage } from '../utils/imageDownloader';
 
-import beadPaletteData from './beadPaletteData.json';
 import { 
   colorSystemOptions, 
   convertPaletteToColorSystem, 
-  getDisplayColorKey,
   getColorKeyByHex,
+  getMardToHexMapping,
   ColorSystem 
 } from '../utils/colorSystemUtils';
 
@@ -63,48 +62,19 @@ function sortColorKeys(a: string, b: string): number {
 }
 
 // --- Define available palette key sets ---
-const allPaletteKeys = Object.keys(beadPaletteData);
+// 从colorSystemMapping.json获取所有MARD色号
+const mardToHexMapping = getMardToHexMapping();
 
-// 144 Color Palette Keys
-const palette144Keys = ["A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1", "M1", "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "M2", "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "M3", "A4", "B4", "C4", "D5", "E4", "F4", "G4", "H4", "M4", "A5", "B5", "C5", "D6", "E5", "F5", "G5", "H5", "M5", "A6", "B6", "C6", "D7", "E6", "F6", "G6", "H6", "M6", "A7", "B7", "C7", "D8", "E7", "F7", "G7", "H7", "M7", "A8", "B8", "C8", "D9", "E8", "F8", "G8", "H8", "M8", "A9", "B10", "C9", "D11", "E9", "F9", "G9", "H9", "M9", "A10", "B11", "C10", "D12", "E10", "F10", "G10", "H10", "M10", "A11", "B12", "C11", "D13", "E11", "F11", "G11", "H11", "M11", "A12", "B13", "C13", "D14", "E12", "F12", "G12", "H12", "M12", "A13", "B14", "C14", "D15", "E13", "F13", "G13", "H13", "M13", "A14", "B15", "C15", "D16", "E14", "F14", "G14", "H14", "M14", "A15", "B16", "C16", "D17", "E15", "G15", "M15", "B17", "C17", "D18", "G16", "B18", "D19", "G17", "B19", "D20", "B20", "D21", "T1"]; // Ensure T1 is present
-
-// 168 Color Palette Keys (from user table)
-const palette168Keys = ["A1", "B1", "C1", "D1", "E1", "F1", "G1", "M1", "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "M2", "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3", "M3", "A4", "B4", "C4", "D5", "E4", "F4", "G4", "H4", "M4", "A5", "B5", "C5", "D6", "E5", "F5", "G5", "H5", "M5", "A6", "B6", "C6", "D7", "E6", "F6", "G6", "H6", "M6", "A7", "B7", "C7", "D8", "E7", "F7", "G7", "H7", "M7", "A8", "B8", "C8", "D9", "E8", "F8", "G8", "H8", "M8", "A9", "B10", "C9", "D11", "E9", "F9", "G9", "H9", "M9", "A10", "B11", "C10", "D12", "E10", "F10", "G10", "H10", "M10", "A11", "B12", "C11", "D13", "E11", "F11", "G11", "H11", "M11", "A12", "B13", "C13", "D14", "E12", "F12", "G12", "H12", "M12", "A13", "B14", "C14", "D15", "E13", "F13", "G13", "H13", "M13", "A14", "B15", "C15", "D16", "E14", "F14", "G14", "H14", "M14", "A15", "B16", "C16", "D17", "E15", "G15", "M15", "B17", "C17", "D18", "G16", "B18", "D19", "G17", "B19", "D20", "B20", "D21", "T1"]; // Ensure T1 is present
-
-// 96 Color Palette Keys (from user table)
-const palette96Keys = ["A3", "A4", "A6", "A7", "A10", "A11", "A13", "A14", "B3", "B5", "B7", "B8", "B10", "B12", "B14", "B17", "B18", "B19", "B20", "C2", "C3", "C5", "C6", "C7", "C8", "C10", "C11", "C13", "C16", "D2", "D3", "D5", "D6", "D7", "D8", "D9", "D11", "D12", "D13", "D14", "D15", "D16", "D18", "D19", "D20", "D21", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9", "E10", "E11", "E12", "E13", "E14", "E15", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13", "F14", "G1", "G2", "G3", "G5", "G7", "G8", "G9", "G13", "G14", "G17", "H1", "H2", "H3", "H4", "H5", "H6", "H7", "M5", "M6", "M9", "M12", "T1"]; // Added T1
-
-// 120 Color Palette Keys (from user table)
-const palette120Keys = ["A1", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12", "A13", "A14", "A15", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18", "B19", "B20", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C13", "C14", "C15", "C16", "C17", "D1", "D2", "D3", "D5", "D6", "D7", "D8", "D9", "D11", "D12", "D13", "D14", "D15", "D16", "D17", "D18", "D19", "D20", "D21", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9", "E10", "E11", "E12", "E13", "E14", "E15", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13", "F14", "G1", "G2", "G3", "G5", "G6", "G7", "G8", "G9", "G13", "G14", "G17", "H1", "H2", "H3", "H4", "H5", "H6", "H7", "H12", "M5", "M6", "M9", "M12", "T1"]; // Added T1
-
-// 72 Color Palette Keys (from user table)
-const palette72Keys = ["A3", "A4", "A6", "A7", "A10", "A11", "A13", "B3", "B5", "B7", "B8", "B10", "B12", "B14", "B17", "B18", "B19", "B20", "C2", "C3", "C5", "C6", "C7", "C8", "C10", "C11", "C13", "C16", "D2", "D3", "D6", "D7", "D8", "D9", "D11", "D12", "D13", "D14", "D15", "D16", "D18", "D19", "D20", "D21", "E1", "E2", "E3", "E4", "E5", "E8", "E12", "E13", "F5", "F7", "F8", "F10", "F13", "G1", "G2", "G3", "G5", "G7", "G8", "G9", "G13", "H1", "H2", "H3", "H4", "H5", "H7", "T1"]; // Added T1
-
-// Placeholder for other palettes
-// const palette48Keys = [...];
-// const palette24Keys = [...];
-
-const paletteOptions = {
-  'all': { name: `全色系291色`, keys: allPaletteKeys },
-  '168': { name: '168色', keys: palette168Keys },
-  '144': { name: '144色', keys: palette144Keys },
-  '120': { name: '120色', keys: palette120Keys },
-  '96': { name: '96色', keys: palette96Keys },
-  '72': { name: '72色', keys: palette72Keys }, // Added 72
-  // Add other palettes here
-};
-
-type PaletteOptionKey = keyof typeof paletteOptions;
-
-// Pre-process the FULL palette data once
-const fullBeadPalette: PaletteColor[] = Object.entries(beadPaletteData)
-  .map(([key, hex]) => {
+// Pre-process the FULL palette data once - 使用colorSystemMapping而不是beadPaletteData
+const fullBeadPalette: PaletteColor[] = Object.entries(mardToHexMapping)
+  .map(([mardKey, hex]) => {
     const rgb = hexToRgb(hex);
     if (!rgb) {
-      console.warn(`Invalid hex code "${hex}" for key "${key}". Skipping.`);
+      console.warn(`Invalid hex code "${hex}" for MARD key "${mardKey}". Skipping.`);
       return null;
     }
-    return { key, hex, rgb };
+    // 使用hex值作为key，符合新的架构设计
+    return { key: hex, hex, rgb };
   })
   .filter((color): color is PaletteColor => color !== null);
 
@@ -120,7 +90,7 @@ const transparentColorData: MappedPixel = { key: TRANSPARENT_KEY, color: '#FFFFF
 import PixelatedPreviewCanvas from '../components/PixelatedPreviewCanvas';
 import GridTooltip from '../components/GridTooltip';
 import CustomPaletteEditor from '../components/CustomPaletteEditor';
-import { loadPaletteSelections, savePaletteSelections, presetToSelections, presetKeysToHexSelections, PaletteSelections } from '../utils/localStorageUtils';
+import { loadPaletteSelections, savePaletteSelections, presetToSelections, PaletteSelections } from '../utils/localStorageUtils';
 
 // 1. 导入新的 DonationModal 组件
 import DonationModal from '../components/DonationModal';
@@ -133,17 +103,12 @@ export default function Home() {
   const [similarityThresholdInput, setSimilarityThresholdInput] = useState<string>("30");
   // 添加像素化模式状态
   const [pixelationMode, setPixelationMode] = useState<PixelationMode>(PixelationMode.Dominant); // 默认为卡通模式
-  const [selectedPaletteKeySet, setSelectedPaletteKeySet] = useState<PaletteOptionKey>('all');
   
   // 新增：色号系统选择状态
   const [selectedColorSystem, setSelectedColorSystem] = useState<ColorSystem>('MARD');
   
   const [activeBeadPalette, setActiveBeadPalette] = useState<PaletteColor[]>(() => {
-      const initialKey = 'all'; // Match the key used above
-      const options = paletteOptions[initialKey];
-      if (!options) return fullBeadPalette; // Fallback
-      const keySet = new Set(options.keys);
-      return fullBeadPalette.filter(color => keySet.has(color.key));
+      return fullBeadPalette; // 默认使用全部颜色
   });
   // 状态变量：存储被排除的颜色（hex值）
   const [excludedColorKeys, setExcludedColorKeys] = useState<Set<string>>(new Set());
@@ -194,14 +159,15 @@ export default function Home() {
   // Update active palette based on selection and exclusions
   useEffect(() => {
     const newActiveBeadPalette = fullBeadPalette.filter(color => {
-      const isInSelectedPalette = paletteOptions[selectedPaletteKeySet]?.keys.includes(color.key);
-      const isNotExcluded = !excludedColorKeys.has(color.key);
-      return isInSelectedPalette && isNotExcluded;
+      const normalizedHex = color.hex.toUpperCase();
+      const isSelectedInCustomPalette = customPaletteSelections[normalizedHex];
+      const isNotExcluded = !excludedColorKeys.has(normalizedHex);
+      return isSelectedInCustomPalette && isNotExcluded;
     });
     // 根据选择的色号系统转换调色板
     const convertedPalette = convertPaletteToColorSystem(newActiveBeadPalette, selectedColorSystem);
     setActiveBeadPalette(convertedPalette);
-  }, [selectedPaletteKeySet, excludedColorKeys, remapTrigger, selectedColorSystem]);
+  }, [customPaletteSelections, excludedColorKeys, remapTrigger, selectedColorSystem]);
 
   // ++ 添加：当状态变化时同步更新输入框的值 ++
   useEffect(() => {
@@ -277,22 +243,22 @@ export default function Home() {
         setIsCustomPalette(true);
       } else {
         console.log('所有数据都无效，清除localStorage并重新初始化');
-        // 如果本地数据无效，清除localStorage并用当前预设初始化
+        // 如果本地数据无效，清除localStorage并默认选择所有颜色
         localStorage.removeItem('customPerlerPaletteSelections');
-        const currentPresetKeys = paletteOptions[selectedPaletteKeySet]?.keys || [];
-        const initialSelections = presetKeysToHexSelections(fullBeadPalette, currentPresetKeys);
+        const allHexValues = fullBeadPalette.map(color => color.hex.toUpperCase());
+        const initialSelections = presetToSelections(allHexValues, allHexValues);
         setCustomPaletteSelections(initialSelections);
         setIsCustomPalette(false);
       }
     } else {
-      console.log('没有localStorage数据，使用预设初始化');
-      // 如果没有保存的选择，用当前预设初始化
-      const currentPresetKeys = paletteOptions[selectedPaletteKeySet]?.keys || [];
-      const initialSelections = presetKeysToHexSelections(fullBeadPalette, currentPresetKeys);
+      console.log('没有localStorage数据，默认选择所有颜色');
+      // 如果没有保存的选择，默认选择所有颜色
+      const allHexValues = fullBeadPalette.map(color => color.hex.toUpperCase());
+      const initialSelections = presetToSelections(allHexValues, allHexValues);
       setCustomPaletteSelections(initialSelections);
       setIsCustomPalette(false);
     }
-  }, [selectedPaletteKeySet]);
+  }, []); // 只在组件首次加载时执行
 
   // 更新 activeBeadPalette 基于自定义选择和排除列表
   useEffect(() => {
@@ -703,7 +669,6 @@ export default function Home() {
           totalBeadCount,
           options: options || downloadOptions,
           activeBeadPalette,
-          selectedPaletteKeySet,
           selectedColorSystem
         });
     };
@@ -1095,24 +1060,6 @@ export default function Home() {
       [normalizedHex]: isSelected
     }));
     setIsCustomPalette(true);
-  };
-
-  // 应用预设到自定义色板
-  const handleApplyPreset = (presetKey: string) => {
-    // 检查是否为有效的预设键
-    if (!Object.keys(paletteOptions).includes(presetKey)) {
-      console.warn(`无效的预设键: ${presetKey}`);
-      return;
-    }
-    
-    const typedPresetKey = presetKey as PaletteOptionKey;
-    const presetKeys = paletteOptions[typedPresetKey].keys || [];
-    const newSelections = presetKeysToHexSelections(fullBeadPalette, presetKeys);
-    setCustomPaletteSelections(newSelections);
-    setSelectedPaletteKeySet(typedPresetKey); // 同步更新预设选择状态
-    setIsCustomPalette(false); // 应用预设后，标记为非自定义（除非用户再次修改）
-    // 不要在这里关闭编辑器，让用户可以继续编辑
-    // setIsCustomPaletteEditorOpen(false);
   };
 
   // 保存自定义色板并应用
@@ -1517,11 +1464,8 @@ export default function Home() {
                       allColors={fullBeadPalette}
                       currentSelections={customPaletteSelections}
                       onSelectionChange={handleSelectionChange}
-                      onApplyPreset={handleApplyPreset}
                       onSaveCustomPalette={handleSaveCustomPalette}
                       onClose={() => setIsCustomPaletteEditorOpen(false)}
-                      paletteOptions={paletteOptions}
-                      // ++ 传递新的处理函数 ++
                       onExportCustomPalette={handleExportCustomPalette}
                       onImportCustomPalette={triggerImportPalette}
                       selectedColorSystem={selectedColorSystem}
@@ -1550,7 +1494,7 @@ export default function Home() {
                     className={`w-full py-2.5 px-4 text-sm sm:text-base rounded-lg transition-all duration-200 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white shadow-sm hover:shadow-md`} // Keep red for contrast?
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}> <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /> </svg>
-                    完成手动上色
+                    完成手动编辑
                   </button>
                   {/* Color Palette (only in manual mode) */}
                   <div className="mt-4">
@@ -1787,7 +1731,7 @@ export default function Home() {
                 className={`w-full py-2.5 px-4 text-sm sm:text-base rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg hover:translate-y-[-1px]`}
               >
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"> <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /> </svg>
-                 进入手动上色模式
+                 进入手动编辑模式（含去背景）
              </button>
             </div>
         )} {/* ++ End of RENDER Enter Manual Mode Button ++ */}
