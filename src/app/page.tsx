@@ -25,6 +25,7 @@ import {
   colorSystemOptions, 
   convertPaletteToColorSystem, 
   getDisplayColorKey,
+  getColorKeyByHex,
   ColorSystem 
 } from '../utils/colorSystemUtils';
 
@@ -144,9 +145,11 @@ export default function Home() {
       const keySet = new Set(options.keys);
       return fullBeadPalette.filter(color => keySet.has(color.key));
   });
+  // 状态变量：存储被排除的颜色（hex值）
   const [excludedColorKeys, setExcludedColorKeys] = useState<Set<string>>(new Set());
   const [showExcludedColors, setShowExcludedColors] = useState<boolean>(false);
-  const [initialGridColorKeys, setInitialGridColorKeys] = useState<Set<string> | null>(null);
+  // 用于记录初始网格颜色（hex值），用于显示排除功能
+  const [initialGridColorKeys, setInitialGridColorKeys] = useState<Set<string>>(new Set());
   const [mappedPixelData, setMappedPixelData] = useState<MappedPixel[][] | null>(null);
   const [gridDimensions, setGridDimensions] = useState<{ N: number; M: number } | null>(null);
   const [colorCounts, setColorCounts] = useState<{ [key: string]: { count: number; color: string } } | null>(null);
@@ -209,22 +212,39 @@ export default function Home() {
   // ++ Calculate unique colors currently on the grid for the palette ++
   const currentGridColors = useMemo(() => {
     if (!mappedPixelData) return [];
+    // 使用hex值进行去重，避免多个MARD色号对应同一个目标色号系统值时产生重复key
     const uniqueColorsMap = new Map<string, MappedPixel>();
     mappedPixelData.flat().forEach(cell => {
-      if (cell && cell.key && !cell.isExternal && !uniqueColorsMap.has(cell.key)) {
-        // Store the full MappedPixel object to preserve key and color
-        uniqueColorsMap.set(cell.key, { key: cell.key, color: cell.color });
+      if (cell && cell.color && !cell.isExternal) {
+        const hexKey = cell.color.toUpperCase();
+        if (!uniqueColorsMap.has(hexKey)) {
+          // 存储hex值作为key，保持颜色信息
+          uniqueColorsMap.set(hexKey, { key: cell.key, color: cell.color });
+        }
       }
     });
-    // Sort colors like the stats list, if desired
-    const originalColors = Array.from(uniqueColorsMap.values()).sort((a, b) => sortColorKeys(a.key, b.key));
     
-    // 转换色号系统
-    return originalColors.map(color => ({
-      ...color,
-      key: getDisplayColorKey(color.key, selectedColorSystem)
-    }));
-  }, [mappedPixelData, selectedColorSystem]); // 添加selectedColorSystem到依赖项
+    // 转换为数组并为每个hex值生成对应的色号系统显示
+    const originalColors = Array.from(uniqueColorsMap.values());
+    
+    return originalColors.map(color => {
+      const displayKey = getColorKeyByHex(color.color.toUpperCase(), selectedColorSystem);
+      return {
+        key: displayKey,
+        color: color.color
+      };
+    }).sort((a, b) => {
+      // 对显示的色号进行排序
+      if (selectedColorSystem === 'MARD') {
+        return sortColorKeys(a.key, b.key);
+      } else {
+        // 对于数字色号系统，按数字排序
+        const aNum = parseInt(a.key) || 0;
+        const bNum = parseInt(b.key) || 0;
+        return aNum - bNum;
+      }
+    });
+  }, [mappedPixelData, selectedColorSystem]);
 
   // 初始化时从本地存储加载自定义色板选择
   useEffect(() => {
@@ -248,13 +268,13 @@ export default function Home() {
   useEffect(() => {
     const newActiveBeadPalette = fullBeadPalette.filter(color => {
       const isSelectedInCustomPalette = customPaletteSelections[color.key];
-      const isNotExcluded = !excludedColorKeys.has(color.key);
+      // 使用hex值进行排除检查
+      const isNotExcluded = !excludedColorKeys.has(color.hex.toUpperCase());
       return isSelectedInCustomPalette && isNotExcluded;
     });
-    // 根据选择的色号系统转换调色板
-    const convertedPalette = convertPaletteToColorSystem(newActiveBeadPalette, selectedColorSystem);
-    setActiveBeadPalette(convertedPalette);
-  }, [customPaletteSelections, excludedColorKeys, remapTrigger, selectedColorSystem]);
+    // 不进行色号系统转换，保持原始的MARD色号和hex值
+    setActiveBeadPalette(newActiveBeadPalette);
+  }, [customPaletteSelections, excludedColorKeys, remapTrigger]);
 
   // --- Event Handlers ---
 
@@ -294,7 +314,7 @@ export default function Home() {
       setGridDimensions(null);
       setColorCounts(null);
       setTotalBeadCount(0);
-      setInitialGridColorKeys(null); // ++ 重置初始键 ++
+      setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
       // ++ 重置横轴格子数量为默认值 ++
       const defaultGranularity = 100;
       setGranularity(defaultGranularity);
@@ -304,7 +324,7 @@ export default function Home() {
     reader.onerror = () => {
         console.error("文件读取失败");
         alert("无法读取文件。");
-        setInitialGridColorKeys(null); // ++ 重置初始键 ++
+        setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
     }
     reader.readAsDataURL(file);
     // ++ Reset manual coloring mode when a new file is processed ++
@@ -439,7 +459,7 @@ export default function Home() {
       setMappedPixelData(null); 
       setGridDimensions(null); 
       setColorCounts(null); 
-      setInitialGridColorKeys(null);
+      setInitialGridColorKeys(new Set());
     };
     
     img.onload = () => {
@@ -583,12 +603,12 @@ export default function Home() {
         let totalCount = 0;
         mergedData.flat().forEach(cell => {
           if (cell && cell.key && !cell.isExternal) {
-            // 使用显示的色号作为统计键值
-            const displayKey = cell.key;
-            if (!counts[displayKey]) {
-              counts[displayKey] = { count: 0, color: cell.color };
+            // 使用hex值作为统计键值，而不是色号
+            const hexKey = cell.color;
+            if (!counts[hexKey]) {
+              counts[hexKey] = { count: 0, color: cell.color };
             }
-            counts[displayKey].count++;
+            counts[hexKey].count++;
             totalCount++;
           }
         });
@@ -658,118 +678,130 @@ export default function Home() {
     };
 
     // --- Handler to toggle color exclusion ---
-    const handleToggleExcludeColor = (key: string) => {
+    const handleToggleExcludeColor = (hexKey: string) => {
         const currentExcluded = excludedColorKeys;
-        const isExcluding = !currentExcluded.has(key);
+        const isExcluding = !currentExcluded.has(hexKey);
 
         if (isExcluding) {
-            console.log(`---------\nAttempting to EXCLUDE color: ${key}`); // ++ Log Start ++
+            console.log(`---------\nAttempting to EXCLUDE color: ${hexKey}`);
 
             // --- 确保初始颜色键已记录 ---
-            if (!initialGridColorKeys) {
+            if (initialGridColorKeys.size === 0) {
                 console.error("Cannot exclude color: Initial grid color keys not yet calculated.");
                 alert("无法排除颜色，初始颜色数据尚未准备好，请稍候。");
                 return;
             }
-            console.log("Initial Grid Keys:", Array.from(initialGridColorKeys)); // ++ Log Initial Keys ++
-            console.log("Currently Excluded Keys (before this op):", Array.from(currentExcluded)); // ++ Log Current Exclusions ++
+            console.log("Initial Grid Hex Keys:", Array.from(initialGridColorKeys));
+            console.log("Currently Excluded Hex Keys (before this op):", Array.from(currentExcluded));
 
-            const nextExcludedKeys = new Set(currentExcluded); nextExcludedKeys.add(key);
+            const nextExcludedKeys = new Set(currentExcluded);
+            nextExcludedKeys.add(hexKey);
 
             // --- 使用初始颜色键进行重映射目标逻辑 ---
-            // 1. 从初始网格颜色集合开始
-            const potentialRemapKeys = new Set(initialGridColorKeys);
-            console.log("Step 1: Potential Keys (from initial):", Array.from(potentialRemapKeys));
+            // 1. 从初始网格颜色集合开始（hex值）
+            const potentialRemapHexKeys = new Set(initialGridColorKeys);
+            console.log("Step 1: Potential Hex Keys (from initial):", Array.from(potentialRemapHexKeys));
 
-            // 2. 移除当前要排除的键
-            potentialRemapKeys.delete(key);
-            console.log(`Step 2: Potential Keys (after removing ${key}):`, Array.from(potentialRemapKeys));
+            // 2. 移除当前要排除的hex键
+            potentialRemapHexKeys.delete(hexKey);
+            console.log(`Step 2: Potential Hex Keys (after removing ${hexKey}):`, Array.from(potentialRemapHexKeys));
 
-            // 3. 移除任何*其他*当前也被排除的键
-            currentExcluded.forEach(excludedKey => {
-                potentialRemapKeys.delete(excludedKey);
+            // 3. 移除任何*其他*当前也被排除的hex键
+            currentExcluded.forEach(excludedHexKey => {
+                potentialRemapHexKeys.delete(excludedHexKey);
             });
-            console.log("Step 3: Potential Keys (after removing other current exclusions):", Array.from(potentialRemapKeys)); // ++ Log Final Potential Keys ++
+            console.log("Step 3: Potential Hex Keys (after removing other current exclusions):", Array.from(potentialRemapHexKeys));
 
-            // 4. 基于剩余的*初始*颜色键创建重映射调色板
-            const remapTargetPalette = fullBeadPalette.filter(color => potentialRemapKeys.has(color.key));
-            const remapTargetKeys = remapTargetPalette.map(p => p.key); // ++ Log Target Palette Keys ++
-            console.log("Step 4: Remap Target Palette Keys:", remapTargetKeys);
+            // 4. 基于剩余的hex值创建重映射调色板
+            const remapTargetPalette = fullBeadPalette.filter(color => potentialRemapHexKeys.has(color.hex.toUpperCase()));
+            const remapTargetHexKeys = remapTargetPalette.map(p => p.hex.toUpperCase());
+            console.log("Step 4: Remap Target Palette Hex Keys:", remapTargetHexKeys);
 
             // 5. *** 关键检查 ***：如果在考虑所有排除项后，没有*初始*颜色可供映射，则阻止此次排除
             if (remapTargetPalette.length === 0) {
-                console.warn(`Cannot exclude color '${key}'. No other valid colors from the initial grid remain after considering all current exclusions.`);
-                alert(`无法排除颜色 ${key}，因为图中最初存在的其他可用颜色也已被排除。请先恢复部分其他颜色。`);
-                console.log("---------"); // ++ Log End ++
+                console.warn(`Cannot exclude color '${hexKey}'. No other valid colors from the initial grid remain after considering all current exclusions.`);
+                alert(`无法排除颜色 ${hexKey}，因为图中最初存在的其他可用颜色也已被排除。请先恢复部分其他颜色。`);
+                console.log("---------");
                 return; // 停止排除过程
             }
             console.log(`Remapping target palette (based on initial grid colors minus all exclusions) contains ${remapTargetPalette.length} colors.`);
-            // --- 结束修正逻辑 ---
 
-            const excludedColorData = fullBeadPalette.find(p => p.key === key);
+            // 查找被排除颜色的RGB值用于重映射
+            const excludedColorData = fullBeadPalette.find(p => p.hex.toUpperCase() === hexKey);
             // 检查排除颜色的数据是否存在
-             if (!excludedColorData || !mappedPixelData || !gridDimensions) {
-                 console.error("Cannot exclude color: Missing data for remapping.");
-                 alert("无法排除颜色，缺少必要数据。");
-                 console.log("---------"); // ++ Log End ++
-                 return;
-             }
+            if (!excludedColorData || !mappedPixelData || !gridDimensions) {
+                console.error("Cannot exclude color: Missing data for remapping.");
+                alert("无法排除颜色，缺少必要数据。");
+                console.log("---------");
+                return;
+            }
 
-
-            console.log(`Remapping cells currently using excluded color: ${key}`);
+            console.log(`Remapping cells currently using excluded color: ${hexKey}`);
             // 仅在需要重映射时创建深拷贝
             const newMappedData = mappedPixelData.map(row => row.map(cell => ({...cell})));
-            let remappedCount = 0; const { N, M } = gridDimensions;
-            let firstReplacementKey: string | null = null; // Log the first replacement
+            let remappedCount = 0;
+            const { N, M } = gridDimensions;
+            let firstReplacementHex: string | null = null;
 
-            for (let j = 0; j < M; j++) { for (let i = 0; i < N; i++) {
-                const cell = newMappedData[j]?.[i];
-                // 此条件正确地仅针对具有排除键的单元格
-                if (cell && !cell.isExternal && cell.key === key) {
-                    // *** 使用派生的 remapTargetPalette（此处保证非空）查找最接近的颜色 ***
-                    const replacementColor = findClosestPaletteColor(excludedColorData.rgb, remapTargetPalette);
-                    if (!firstReplacementKey) firstReplacementKey = replacementColor.key; // ++ Log Replacement Key ++
-                    newMappedData[j][i] = { ...cell, key: replacementColor.key, color: replacementColor.hex };
-                    remappedCount++;
+            for (let j = 0; j < M; j++) {
+                for (let i = 0; i < N; i++) {
+                    const cell = newMappedData[j]?.[i];
+                    // 此条件正确地仅针对具有排除hex值的单元格
+                    if (cell && !cell.isExternal && cell.color.toUpperCase() === hexKey) {
+                        // *** 使用派生的 remapTargetPalette 查找最接近的颜色 ***
+                        const replacementColor = findClosestPaletteColor(excludedColorData.rgb, remapTargetPalette);
+                        if (!firstReplacementHex) firstReplacementHex = replacementColor.hex;
+                        newMappedData[j][i] = { 
+                            ...cell, 
+                            key: replacementColor.key, 
+                            color: replacementColor.hex 
+                        };
+                        remappedCount++;
+                    }
                 }
-            }}
-            console.log(`Remapped ${remappedCount} cells. First replacement key found was: ${firstReplacementKey || 'N/A'}`); // ++ Log Replacement Key ++
+            }
+            console.log(`Remapped ${remappedCount} cells. First replacement hex found was: ${firstReplacementHex || 'N/A'}`);
 
             // 同时更新状态
             setExcludedColorKeys(nextExcludedKeys); // 应用此颜色的排除
             setMappedPixelData(newMappedData); // 使用重映射的数据更新
 
-            // 基于*新*映射数据重新计算计数
-            const newCounts: { [key: string]: { count: number; color: string } } = {}; let newTotalCount = 0;
-            newMappedData.flat().forEach(cell => { if (cell && cell.key && !cell.isExternal) {
-                if (!newCounts[cell.key]) {
-                    const colorData = fullBeadPalette.find(p => p.key === cell.key);
-                    // 确保颜色数据存在
-                    newCounts[cell.key] = { count: 0, color: colorData?.hex || '#000000' };
+            // 基于*新*映射数据重新计算计数（以hex为键）
+            const newCounts: { [hexKey: string]: { count: number; color: string } } = {};
+            let newTotalCount = 0;
+            newMappedData.flat().forEach(cell => {
+                if (cell && cell.color && !cell.isExternal) {
+                    const cellHex = cell.color.toUpperCase();
+                    if (!newCounts[cellHex]) {
+                        newCounts[cellHex] = { count: 0, color: cellHex };
+                    }
+                    newCounts[cellHex].count++;
+                    newTotalCount++;
                 }
-                newCounts[cell.key].count++; newTotalCount++;
-            }});
-            setColorCounts(newCounts); setTotalBeadCount(newTotalCount);
+            });
+            setColorCounts(newCounts);
+            setTotalBeadCount(newTotalCount);
             console.log("State updated after exclusion and local remap based on initial grid colors.");
-            console.log("---------"); // ++ Log End ++
+            console.log("---------");
 
             // ++ 在更新状态后，重新绘制 Canvas ++
-            if (pixelatedCanvasRef.current && gridDimensions) { // ++ 添加检查 ++
-              setMappedPixelData(newMappedData);
-              // 不要调用 setGridDimensions，因为颜色排除不需要改变网格尺寸
+            if (pixelatedCanvasRef.current && gridDimensions) {
+                setMappedPixelData(newMappedData);
+                // 不要调用 setGridDimensions，因为颜色排除不需要改变网格尺寸
             } else {
-               console.error("Canvas ref or grid dimensions missing, skipping draw call in handleToggleExcludeColor.");
+                console.error("Canvas ref or grid dimensions missing, skipping draw call in handleToggleExcludeColor.");
             }
 
         } else {
             // --- Re-including ---
-            console.log(`---------\nAttempting to RE-INCLUDE color: ${key}`); // ++ Log Start ++
-            console.log(`Re-including color: ${key}. Triggering full remap.`);
-            const nextExcludedKeys = new Set(currentExcluded); nextExcludedKeys.delete(key);
+            console.log(`---------\nAttempting to RE-INCLUDE color: ${hexKey}`);
+            console.log(`Re-including color: ${hexKey}. Triggering full remap.`);
+            const nextExcludedKeys = new Set(currentExcluded);
+            nextExcludedKeys.delete(hexKey);
             setExcludedColorKeys(nextExcludedKeys);
             // 此处无需重置 initialGridColorKeys，完全重映射会通过 pixelateImage 重新计算它
             setRemapTrigger(prev => prev + 1); // *** KEPT setRemapTrigger here for re-inclusion ***
-            console.log("---------"); // ++ Log End ++
+            console.log("---------");
         }
         // ++ Exit manual mode if colors are excluded/included ++
         setIsManualColoringMode(false);
@@ -826,19 +858,19 @@ export default function Home() {
     
     // 重新计算颜色统计
     if (colorCounts) {
-      const newColorCounts: { [key: string]: { count: number; color: string } } = {};
+      const newColorCounts: { [hexKey: string]: { count: number; color: string } } = {};
       let newTotalCount = 0;
       
       newPixelData.flat().forEach(cell => {
         if (cell && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
-          if (!newColorCounts[cell.key]) {
-            const colorInfo = fullBeadPalette.find(p => p.key === cell.key);
-            newColorCounts[cell.key] = {
+          const cellHex = cell.color.toUpperCase();
+          if (!newColorCounts[cellHex]) {
+            newColorCounts[cellHex] = {
               count: 0,
-              color: colorInfo?.hex || '#000000'
+              color: cellHex
             };
           }
-          newColorCounts[cell.key].count++;
+          newColorCounts[cellHex].count++;
           newTotalCount++;
         }
       });
@@ -926,23 +958,29 @@ export default function Home() {
             const newColorCounts = { ...colorCounts };
             let newTotalCount = totalBeadCount;
 
-            if (!wasExternal && previousKey !== TRANSPARENT_KEY && newColorCounts[previousKey]) {
-              newColorCounts[previousKey].count--;
-              if (newColorCounts[previousKey].count <= 0) {
-                delete newColorCounts[previousKey];
+            // 处理之前颜色的减少（使用hex值）
+            if (!wasExternal && previousKey !== TRANSPARENT_KEY) {
+              const previousCell = mappedPixelData[j][i];
+              const previousHex = previousCell?.color?.toUpperCase();
+              if (previousHex && newColorCounts[previousHex]) {
+                newColorCounts[previousHex].count--;
+                if (newColorCounts[previousHex].count <= 0) {
+                  delete newColorCounts[previousHex];
+                }
+                newTotalCount--;
               }
-              newTotalCount--;
             }
 
+            // 处理新颜色的增加（使用hex值）
             if (!newCellData.isExternal && newCellData.key !== TRANSPARENT_KEY) {
-              if (!newColorCounts[newCellData.key]) {
-                const colorInfo = fullBeadPalette.find(p => p.key === newCellData.key);
-                newColorCounts[newCellData.key] = {
+              const newHex = newCellData.color.toUpperCase();
+              if (!newColorCounts[newHex]) {
+                newColorCounts[newHex] = {
                   count: 0,
-                  color: colorInfo?.hex || '#000000'
+                  color: newHex
                 };
               }
-              newColorCounts[newCellData.key].count++;
+              newColorCounts[newHex].count++;
               newTotalCount++;
             }
 
@@ -1143,11 +1181,6 @@ export default function Home() {
     importPaletteInputRef.current?.click();
   };
 
-  // 色号系统选择处理函数
-  const handleColorSystemChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const newColorSystem = event.target.value as ColorSystem;
-    setSelectedColorSystem(newColorSystem);
-  };
 
   return (
     <>
@@ -1377,19 +1410,22 @@ export default function Home() {
 
                 {/* 色号系统选择器 */}
                 <div className="sm:col-span-2">
-                  <label htmlFor="colorSystemSelect" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">色号系统:</label>
-                  <select
-                    id="colorSystemSelect"
-                    value={selectedColorSystem}
-                    onChange={handleColorSystemChange}
-                    className="w-full p-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 h-9 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200"
-                  >
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">色号系统:</label>
+                  <div className="flex flex-wrap gap-2">
                     {colorSystemOptions.map(option => (
-                      <option key={option.key} value={option.key} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200">
+                      <button
+                        key={option.key}
+                        onClick={() => setSelectedColorSystem(option.key as ColorSystem)}
+                        className={`px-3 py-2 text-sm rounded-lg border transition-all duration-200 flex-shrink-0 ${
+                          selectedColorSystem === option.key
+                            ? 'bg-blue-500 text-white border-blue-500 shadow-md transform scale-105'
+                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-600'
+                        }`}
+                      >
                         {option.name}
-                      </option>
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
                 {/* 自定义色板按钮 */}
@@ -1544,22 +1580,24 @@ export default function Home() {
             <ul className="space-y-1 max-h-60 overflow-y-auto pr-2 text-sm">
               {Object.keys(colorCounts)
                 .sort(sortColorKeys)
-                .map((key) => {
-                  const isExcluded = excludedColorKeys.has(key);
-                  const count = colorCounts[key].count;
-                  const colorHex = colorCounts[key].color;
+                .map((hexKey) => {
+                  // 现在key是hex值，需要通过hex获取对应色号系统的色号
+                  const displayColorKey = getColorKeyByHex(hexKey, selectedColorSystem);
+                  const isExcluded = excludedColorKeys.has(hexKey);
+                  const count = colorCounts[hexKey].count;
+                  const colorHex = colorCounts[hexKey].color;
 
                   return (
                     <li
-                      key={key}
-                      onClick={() => handleToggleExcludeColor(key)}
+                      key={hexKey}
+                      onClick={() => handleToggleExcludeColor(hexKey)}
                        // Apply dark mode styles for list items (normal and excluded)
                       className={`flex items-center justify-between p-1.5 rounded cursor-pointer transition-colors ${ 
                         isExcluded
                           ? 'bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-800/60 opacity-60 dark:opacity-70' // Darker red background for excluded
                           : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                      title={isExcluded ? `点击恢复 ${key}` : `点击排除 ${key}`}
+                      title={isExcluded ? `点击恢复 ${displayColorKey}` : `点击排除 ${displayColorKey}`}
                     >
                       <div className={`flex items-center space-x-2 ${isExcluded ? 'line-through' : ''}`}>
                         {/* Adjust color swatch border */}
@@ -1568,7 +1606,7 @@ export default function Home() {
                           style={{ backgroundColor: isExcluded ? '#666' : colorHex }} // Darker gray for excluded swatch
                         ></span>
                         {/* Adjust text color for key (normal and excluded) */}
-                        <span className={`font-mono font-medium ${isExcluded ? 'text-red-700 dark:text-red-400' : 'text-gray-800 dark:text-gray-200'}`}>{getDisplayColorKey(key, selectedColorSystem)}</span>
+                        <span className={`font-mono font-medium ${isExcluded ? 'text-red-700 dark:text-red-400' : 'text-gray-800 dark:text-gray-200'}`}>{displayColorKey}</span>
                       </div>
                       {/* Adjust text color for count (normal and excluded) */}
                       <span className={`text-xs ${isExcluded ? 'text-red-600 dark:text-red-400 line-through' : 'text-gray-600 dark:text-gray-300'}`}>{count} 颗</span>
@@ -1599,27 +1637,27 @@ export default function Home() {
                       <div className="max-h-40 overflow-y-auto">
                         {Array.from(excludedColorKeys).length > 0 ? (
                           <ul className="space-y-1">
-                            {Array.from(excludedColorKeys).sort(sortColorKeys).map(key => {
-                              const colorData = fullBeadPalette.find(color => color.key === key);
+                            {Array.from(excludedColorKeys).sort(sortColorKeys).map(hexKey => {
+                              const colorData = fullBeadPalette.find(color => color.hex.toUpperCase() === hexKey.toUpperCase());
                               return (
-                                <li key={key} className="flex justify-between items-center p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
+                                <li key={hexKey} className="flex justify-between items-center p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
                                   <div className="flex items-center space-x-2">
                                     <span
                                       className="inline-block w-4 h-4 rounded border border-gray-400 dark:border-gray-500 flex-shrink-0"
-                                      style={{ backgroundColor: colorData?.hex || '#666666' }}
+                                      style={{ backgroundColor: colorData?.hex || hexKey }}
                                     ></span>
-                                    <span className="font-mono text-xs text-gray-800 dark:text-gray-200">{getDisplayColorKey(key, selectedColorSystem)}</span>
+                                    <span className="font-mono text-xs text-gray-800 dark:text-gray-200">{getColorKeyByHex(hexKey, selectedColorSystem)}</span>
                                   </div>
                                   <button
                                     onClick={() => {
                                       // 实现恢复单个颜色的逻辑
                                       const newExcludedKeys = new Set(excludedColorKeys);
-                                      newExcludedKeys.delete(key);
+                                      newExcludedKeys.delete(hexKey);
                                       setExcludedColorKeys(newExcludedKeys);
                                       setRemapTrigger(prev => prev + 1);
                                       setIsManualColoringMode(false);
                                       setSelectedColor(null);
-                                      console.log(`Restored color: ${key}`);
+                                      console.log(`Restored color: ${hexKey}`);
                                     }}
                                     className="text-xs py-0.5 px-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/40"
                                   >

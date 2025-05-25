@@ -1,6 +1,6 @@
 import { GridDownloadOptions } from '../types/downloadTypes';
 import { MappedPixel, PaletteColor } from './pixelation';
-import { getDisplayColorKey, ColorSystem } from './colorSystemUtils';
+import { getDisplayColorKey, getColorKeyByHex, ColorSystem } from './colorSystemUtils';
 
 // 用于获取对比色的工具函数 - 从page.tsx复制
 function getContrastColor(hex: string): string {
@@ -463,7 +463,7 @@ export function downloadImage({
         // 绘制色号
         ctx.fillStyle = '#333333';
         ctx.textAlign = 'left';
-        ctx.fillText(getDisplayColorKey(key, selectedColorSystem), itemX + swatchSize + 5, rowY);
+        ctx.fillText(getColorKeyByHex(key, selectedColorSystem), itemX + swatchSize + 5, rowY);
         
         // 绘制数量 - 在每个项目的右侧
         const countText = `${cellData.count} 颗`;

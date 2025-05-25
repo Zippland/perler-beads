@@ -7,10 +7,10 @@ export type ColorSystem = 'MARD' | 'COCO' | '漫漫' | '盼盼' | '咪小窝';
 
 // 色号系统选项
 export const colorSystemOptions = [
-  { key: 'MARD', name: 'MARD马德' },
-  { key: 'COCO', name: 'COCO可可' },
-  { key: '漫漫', name: '漫漫拼豆' },
-  { key: '盼盼', name: '盼盼拼豆' },
+  { key: 'MARD', name: 'MARD' },
+  { key: 'COCO', name: 'COCO' },
+  { key: '漫漫', name: '漫漫' },
+  { key: '盼盼', name: '盼盼' },
   { key: '咪小窝', name: '咪小窝' },
 ];
 
@@ -20,10 +20,10 @@ const typedColorSystemMapping = colorSystemMapping as ColorMapping;
 const typedBeadPaletteData = beadPaletteData as Record<string, string>;
 
 // 从colorSystemMapping.json加载完整的颜色映射数据
-export function loadFullColorMapping(): Map<string, any> {
-  const mapping = new Map();
+export function loadFullColorMapping(): Map<string, Record<ColorSystem, string>> {
+  const mapping = new Map<string, Record<ColorSystem, string>>();
   Object.entries(colorSystemMapping).forEach(([baseKey, colorData]) => {
-    mapping.set(baseKey, colorData);
+    mapping.set(baseKey, colorData as Record<ColorSystem, string>);
   });
   return mapping;
 }
@@ -78,7 +78,7 @@ export function convertToBaseKey(displayKey: string, colorSystem: ColorSystem): 
     return displayKey;
   }
   
-  for (const [hex, mapping] of Object.entries(typedColorSystemMapping)) {
+  for (const [, mapping] of Object.entries(typedColorSystemMapping)) {
     if (mapping[colorSystem] === displayKey) {
       return mapping.MARD;
     }
@@ -90,4 +90,19 @@ export function convertToBaseKey(displayKey: string, colorSystem: ColorSystem): 
 export function isValidColorInSystem(hexValue: string, colorSystem: ColorSystem): boolean {
   const mapping = typedColorSystemMapping[hexValue];
   return mapping && mapping[colorSystem] !== undefined;
+}
+
+// 通过hex值获取指定色号系统的色号
+export function getColorKeyByHex(hexValue: string, colorSystem: ColorSystem): string {
+  // 标准化hex值（确保大写）
+  const normalizedHex = hexValue.toUpperCase();
+  
+  // 查找映射
+  const mapping = typedColorSystemMapping[normalizedHex];
+  if (mapping && mapping[colorSystem]) {
+    return mapping[colorSystem];
+  }
+  
+  // 如果找不到映射，返回 hex 值本身或者 '?'
+  return '?';
 } 
