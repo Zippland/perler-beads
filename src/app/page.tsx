@@ -141,6 +141,9 @@ export default function Home() {
     includeStats: true // 默认包含统计信息
   });
 
+  // 新增：高亮相关状态
+  const [highlightColorKey, setHighlightColorKey] = useState<string | null>(null);
+
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelatedCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1182,6 +1185,15 @@ export default function Home() {
     importPaletteInputRef.current?.click();
   };
 
+  // 新增：处理颜色高亮
+  const handleHighlightColor = (colorHex: string) => {
+    setHighlightColorKey(colorHex);
+  };
+
+  // 新增：高亮完成回调
+  const handleHighlightComplete = () => {
+    setHighlightColorKey(null);
+  };
 
   return (
     <>
@@ -1540,6 +1552,7 @@ export default function Home() {
                       selectedColorSystem={selectedColorSystem}
                       isEraseMode={isEraseMode}
                       onEraseToggle={handleEraseToggle}
+                      onHighlightColor={handleHighlightColor}
                     />
                   </div>
                 </div>
@@ -1558,6 +1571,8 @@ export default function Home() {
                     gridDimensions={gridDimensions}
                     isManualColoringMode={isManualColoringMode}
                     onInteraction={handleCanvasInteraction}
+                    highlightColorKey={highlightColorKey}
+                    onHighlightComplete={handleHighlightComplete}
                   />
                 </div>
               </div>

@@ -226,7 +226,7 @@ export async function downloadImage({
     ctx.textBaseline = 'middle';
     
     // 添加文字阴影效果
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 5;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;

@@ -19,6 +19,8 @@ interface ColorPaletteProps {
   // 新增：一键擦除相关props
   isEraseMode?: boolean;
   onEraseToggle?: () => void;
+  // 新增：高亮相关props
+  onHighlightColor?: (colorHex: string) => void; // 触发高亮某个颜色
 }
 
 const ColorPalette: React.FC<ColorPaletteProps> = ({ 
@@ -28,7 +30,8 @@ const ColorPalette: React.FC<ColorPaletteProps> = ({
   transparentKey,
   selectedColorSystem,
   isEraseMode,
-  onEraseToggle
+  onEraseToggle,
+  onHighlightColor
 }) => {
   if (!colors || colors.length === 0) {
     // Apply dark mode text color
@@ -71,7 +74,13 @@ const ColorPalette: React.FC<ColorPaletteProps> = ({
         return (
           <button
             key={colorData.key}
-            onClick={() => onColorSelect(colorData)}
+            onClick={() => {
+              onColorSelect(colorData);
+              // 如果不是透明颜色且有高亮回调，触发高亮效果
+              if (!isTransparent && onHighlightColor) {
+                onHighlightColor(colorData.color);
+              }
+            }}
             className={`w-8 h-8 rounded border-2 flex-shrink-0 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 dark:focus:ring-blue-500 ${ 
               isSelected
                 // Apply dark mode styles for selected state

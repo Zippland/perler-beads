@@ -16,28 +16,30 @@ interface PixelatedPreviewCanvasProps {
     isClick: boolean,
     isTouchEnd?: boolean
   ) => void;
+  highlightColorKey?: string | null;
+  onHighlightComplete?: () => void;
 }
 
 // 绘制像素化画布的函数
 const drawPixelatedCanvas = (
   dataToDraw: MappedPixel[][],
   canvas: HTMLCanvasElement | null,
-  dims: { N: number; M: number } | null
+  dims: { N: number; M: number } | null,
+  highlightColorKey?: string | null,
+  isHighlighting?: boolean
 ) => {
-  if (!canvas || !dims || dims.N <= 0 || dims.M <= 0) {
-    console.warn("无法绘制Canvas：参数无效或数据未准备好");
-    const ctx = canvas?.getContext('2d');
-    if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    return;
-  }
-  
-  const pixelatedCtx = canvas.getContext('2d');
-  if (!pixelatedCtx) {
-    console.error("无法获取Canvas绘图上下文");
+  if (!canvas || !dims || !dataToDraw) {
+    console.warn("drawPixelatedCanvas: Missing required parameters");
     return;
   }
 
-  // Check if dark mode is active on the HTML element
+  const pixelatedCtx = canvas.getContext('2d');
+  if (!pixelatedCtx) {
+    console.error("Failed to get 2D context for pixelated canvas");
+    return;
+  }
+
+  // Respect current dark mode preference
   const isDarkMode = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
 
   // Define colors based on mode
@@ -69,6 +71,15 @@ const drawPixelatedCanvas = (
       }
       pixelatedCtx.fillRect(drawX, drawY, cellWidthOutput, cellHeightOutput);
 
+      // 如果正在高亮且当前单元格不是目标颜色，添加半透明黑色蒙版
+      if (isHighlighting && highlightColorKey && !cellData.isExternal) {
+        const shouldDim = cellData.color.toUpperCase() !== highlightColorKey.toUpperCase();
+        if (shouldDim) {
+          pixelatedCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // 60% 透明度的黑色蒙版
+          pixelatedCtx.fillRect(drawX, drawY, cellWidthOutput, cellHeightOutput);
+        }
+      }
+
       // Draw grid lines using mode-specific color
       pixelatedCtx.strokeStyle = gridLineColor;
       pixelatedCtx.strokeRect(drawX + 0.5, drawY + 0.5, cellWidthOutput, cellHeightOutput);
@@ -82,10 +93,13 @@ const PixelatedPreviewCanvas: React.FC<PixelatedPreviewCanvasProps> = ({
   isManualColoringMode,
   canvasRef,
   onInteraction,
+  highlightColorKey,
+  onHighlightComplete,
 }) => {
   const [darkModeState, setDarkModeState] = useState<boolean | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number; pageX: number; pageY: number } | null>(null);
   const touchMovedRef = useRef<boolean>(false);
+  const [isHighlighting, setIsHighlighting] = useState(false);
 
   // Effect to detect dark mode changes and update state
   useEffect(() => {
@@ -116,9 +130,23 @@ const PixelatedPreviewCanvas: React.FC<PixelatedPreviewCanvasProps> = ({
     // Ensure darkModeState is not null before drawing
     if (mappedPixelData && gridDimensions && canvasRef.current && darkModeState !== null) {
       console.log(`Redrawing canvas, dark mode: ${darkModeState}`); // Log redraw trigger
-      drawPixelatedCanvas(mappedPixelData, canvasRef.current, gridDimensions);
+      drawPixelatedCanvas(mappedPixelData, canvasRef.current, gridDimensions, highlightColorKey, isHighlighting);
     }
-  }, [mappedPixelData, gridDimensions, canvasRef, darkModeState]); // Add darkModeState dependency
+  }, [mappedPixelData, gridDimensions, canvasRef, darkModeState, highlightColorKey, isHighlighting]); // Add darkModeState dependency
+
+  // 处理高亮效果
+  useEffect(() => {
+    if (highlightColorKey && mappedPixelData && gridDimensions) {
+      setIsHighlighting(true);
+      // 0.3秒后结束高亮
+      const timer = setTimeout(() => {
+        setIsHighlighting(false);
+        onHighlightComplete?.();
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightColorKey, mappedPixelData, gridDimensions, onHighlightComplete]);
 
   // --- 鼠标事件处理 ---
   
