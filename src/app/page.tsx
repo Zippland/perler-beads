@@ -120,7 +120,7 @@ const transparentColorData: MappedPixel = { key: TRANSPARENT_KEY, color: '#FFFFF
 import PixelatedPreviewCanvas from '../components/PixelatedPreviewCanvas';
 import GridTooltip from '../components/GridTooltip';
 import CustomPaletteEditor from '../components/CustomPaletteEditor';
-import { loadPaletteSelections, savePaletteSelections, presetToSelections, PaletteSelections } from '../utils/localStorageUtils';
+import { loadPaletteSelections, savePaletteSelections, presetToSelections, presetKeysToHexSelections, PaletteSelections } from '../utils/localStorageUtils';
 
 // 1. 导入新的 DonationModal 组件
 import DonationModal from '../components/DonationModal';
@@ -251,14 +251,32 @@ export default function Home() {
     // 尝试从localStorage加载
     const savedSelections = loadPaletteSelections();
     if (savedSelections && Object.keys(savedSelections).length > 0) {
-      setCustomPaletteSelections(savedSelections);
-      setIsCustomPalette(true);
+      // 验证加载的数据是否都是有效的hex值
+      const allHexValues = fullBeadPalette.map(color => color.hex.toUpperCase());
+      const validSelections: PaletteSelections = {};
+      let hasValidData = false;
+      
+      Object.entries(savedSelections).forEach(([key, value]) => {
+        if (allHexValues.includes(key.toUpperCase())) {
+          validSelections[key.toUpperCase()] = value;
+          hasValidData = true;
+        }
+      });
+      
+      if (hasValidData) {
+        setCustomPaletteSelections(validSelections);
+        setIsCustomPalette(true);
+      } else {
+        // 如果本地数据无效，用当前预设初始化
+        const currentPresetKeys = paletteOptions[selectedPaletteKeySet]?.keys || [];
+        const initialSelections = presetKeysToHexSelections(fullBeadPalette, currentPresetKeys);
+        setCustomPaletteSelections(initialSelections);
+        setIsCustomPalette(false);
+      }
     } else {
       // 如果没有保存的选择，用当前预设初始化
-      const initialSelections = presetToSelections(
-        allPaletteKeys,
-        paletteOptions[selectedPaletteKeySet]?.keys || []
-      );
+      const currentPresetKeys = paletteOptions[selectedPaletteKeySet]?.keys || [];
+      const initialSelections = presetKeysToHexSelections(fullBeadPalette, currentPresetKeys);
       setCustomPaletteSelections(initialSelections);
       setIsCustomPalette(false);
     }
@@ -267,9 +285,10 @@ export default function Home() {
   // 更新 activeBeadPalette 基于自定义选择和排除列表
   useEffect(() => {
     const newActiveBeadPalette = fullBeadPalette.filter(color => {
-      const isSelectedInCustomPalette = customPaletteSelections[color.key];
+      const normalizedHex = color.hex.toUpperCase();
+      const isSelectedInCustomPalette = customPaletteSelections[normalizedHex];
       // 使用hex值进行排除检查
-      const isNotExcluded = !excludedColorKeys.has(color.hex.toUpperCase());
+      const isNotExcluded = !excludedColorKeys.has(normalizedHex);
       return isSelectedInCustomPalette && isNotExcluded;
     });
     // 不进行色号系统转换，保持原始的MARD色号和hex值
@@ -1057,10 +1076,11 @@ export default function Home() {
   };
 
   // 处理自定义色板中单个颜色的选择变化
-  const handleSelectionChange = (key: string, isSelected: boolean) => {
+  const handleSelectionChange = (hexValue: string, isSelected: boolean) => {
+    const normalizedHex = hexValue.toUpperCase();
     setCustomPaletteSelections(prev => ({
       ...prev,
-      [key]: isSelected
+      [normalizedHex]: isSelected
     }));
     setIsCustomPalette(true);
   };
@@ -1074,10 +1094,8 @@ export default function Home() {
     }
     
     const typedPresetKey = presetKey as PaletteOptionKey;
-    const newSelections = presetToSelections(
-      allPaletteKeys,
-      paletteOptions[typedPresetKey].keys || []
-    );
+    const presetKeys = paletteOptions[typedPresetKey].keys || [];
+    const newSelections = presetKeysToHexSelections(fullBeadPalette, presetKeys);
     setCustomPaletteSelections(newSelections);
     setSelectedPaletteKeySet(typedPresetKey); // 同步更新预设选择状态
     setIsCustomPalette(false); // 应用预设后，标记为非自定义（除非用户再次修改）
@@ -1100,16 +1118,33 @@ export default function Home() {
 
   // ++ 新增：导出自定义色板配置 ++
   const handleExportCustomPalette = () => {
-    const selectedKeys = Object.entries(customPaletteSelections)
+    const selectedHexValues = Object.entries(customPaletteSelections)
       .filter(([, isSelected]) => isSelected)
-      .map(([key]) => key);
+      .map(([hexValue]) => hexValue);
 
-    if (selectedKeys.length === 0) {
+    if (selectedHexValues.length === 0) {
       alert("当前没有选中的颜色，无法导出。");
       return;
     }
 
-    const blob = new Blob([JSON.stringify({ selectedKeys }, null, 2)], { type: 'application/json' });
+    // 为了兼容性，也生成对应的MARD色号
+    const correspondingMardKeys = selectedHexValues
+      .map(hex => {
+        const colorData = fullBeadPalette.find(color => color.hex.toUpperCase() === hex.toUpperCase());
+        return colorData?.key;
+      })
+      .filter(key => key !== undefined) as string[];
+
+    // 导出新格式：基于hex值，同时保留MARD色号以便兼容
+    const exportData = {
+      version: "2.0", // 版本号标识
+      selectedHexValues: selectedHexValues,
+      selectedKeys: correspondingMardKeys, // 保留旧格式以便兼容
+      exportDate: new Date().toISOString(),
+      totalColors: selectedHexValues.length
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1131,30 +1166,80 @@ export default function Home() {
         const content = e.target?.result as string;
         const data = JSON.parse(content);
 
-        if (!data || !Array.isArray(data.selectedKeys)) {
-          throw new Error("无效的文件格式：缺少 'selectedKeys' 数组。");
+        let validHexValues: string[] = [];
+
+        // 检查是否为新格式（基于hex值）
+        if (data.version === "2.0" && Array.isArray(data.selectedHexValues)) {
+          console.log("检测到新格式（基于hex值）的色板文件");
+          
+          const importedHexValues = data.selectedHexValues as string[];
+          const invalidHexValues: string[] = [];
+
+          // 验证hex值
+          importedHexValues.forEach(hex => {
+            const normalizedHex = hex.toUpperCase();
+            const colorData = fullBeadPalette.find(color => color.hex.toUpperCase() === normalizedHex);
+            if (colorData) {
+              validHexValues.push(normalizedHex);
+            } else {
+              invalidHexValues.push(hex);
+            }
+          });
+
+          if (invalidHexValues.length > 0) {
+            console.warn("导入时发现无效的hex值:", invalidHexValues);
+            alert(`导入完成，但以下颜色无效已被忽略：\n${invalidHexValues.join(', ')}`);
+          }
+
+          if (validHexValues.length === 0) {
+            alert("导入的文件中不包含任何有效的颜色。");
+            return;
+          }
+
+          console.log(`成功验证 ${validHexValues.length} 个有效的hex值`);
+
+        } 
+        // 检查是否为旧格式（基于MARD色号）
+        else if (Array.isArray(data.selectedKeys)) {
+          console.log("检测到旧格式（基于MARD色号）的色板文件");
+          
+          const importedKeys = data.selectedKeys as string[];
+          const validKeys = new Set(allPaletteKeys);
+          const validImportedKeys = importedKeys.filter(key => validKeys.has(key));
+          const invalidKeys = importedKeys.filter(key => !validKeys.has(key));
+
+          if (invalidKeys.length > 0) {
+            console.warn("导入时发现无效的颜色key:", invalidKeys);
+            alert(`导入完成，但以下色号无效已被忽略：\n${invalidKeys.join(', ')}`);
+          }
+
+          if (validImportedKeys.length === 0) {
+            alert("导入的文件中不包含任何有效的色号。");
+            return;
+          }
+
+          // 将MARD色号转换为hex值
+          validHexValues = validImportedKeys
+            .map(key => {
+              const colorData = fullBeadPalette.find(color => color.key === key);
+              return colorData?.hex.toUpperCase();
+            })
+            .filter(hex => hex !== undefined) as string[];
+
+          console.log(`从旧格式转换得到 ${validHexValues.length} 个有效的hex值`);
+
+        } 
+        // 无法识别的格式
+        else {
+          throw new Error("无效的文件格式：文件既不包含 'selectedHexValues' 数组也不包含 'selectedKeys' 数组。");
         }
 
-        const importedKeys = data.selectedKeys as string[];
-        const validKeys = new Set(allPaletteKeys);
-        const validImportedKeys = importedKeys.filter(key => validKeys.has(key));
-        const invalidKeys = importedKeys.filter(key => !validKeys.has(key));
-
-        if (invalidKeys.length > 0) {
-          console.warn("导入时发现无效的颜色key:", invalidKeys);
-          alert(`导入完成，但以下色号无效已被忽略：\n${invalidKeys.join(', ')}`);
-        }
-
-        if (validImportedKeys.length === 0) {
-          alert("导入的文件中不包含任何有效的色号。");
-          return;
-        }
-
-        // 基于有效导入的key创建新的selections对象
-        const newSelections = presetToSelections(allPaletteKeys, validImportedKeys);
+        // 基于有效的hex值创建新的selections对象
+        const allHexValues = fullBeadPalette.map(color => color.hex.toUpperCase());
+        const newSelections = presetToSelections(allHexValues, validHexValues);
         setCustomPaletteSelections(newSelections);
         setIsCustomPalette(true); // 标记为自定义
-        alert(`成功导入 ${validImportedKeys.length} 个色号！`);
+        alert(`成功导入 ${validHexValues.length} 个颜色！`);
 
       } catch (error) {
         console.error("导入色板配置失败:", error);

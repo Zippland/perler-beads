@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'customPerlerPaletteSelections';
 
 export interface PaletteSelections {
-  [key: string]: boolean;
+  [hexValue: string]: boolean;
 }
 
 /**
@@ -32,14 +32,33 @@ export function loadPaletteSelections(): PaletteSelections | null {
 }
 
 /**
- * 将预设色板转换为选择状态对象
+ * 将预设色板转换为选择状态对象（基于hex值）
  */
-export function presetToSelections(allKeys: string[], presetKeys: string[]): PaletteSelections {
-  const presetSet = new Set(presetKeys);
+export function presetToSelections(allHexValues: string[], presetHexValues: string[]): PaletteSelections {
+  const presetSet = new Set(presetHexValues.map(hex => hex.toUpperCase()));
   const selections: PaletteSelections = {};
   
-  allKeys.forEach(key => {
-    selections[key] = presetSet.has(key);
+  allHexValues.forEach(hex => {
+    const normalizedHex = hex.toUpperCase();
+    selections[normalizedHex] = presetSet.has(normalizedHex);
+  });
+  
+  return selections;
+}
+
+/**
+ * 根据MARD色号预设生成基于hex值的选择状态（用于兼容旧预设）
+ */
+export function presetKeysToHexSelections(
+  allBeadPalette: Array<{key: string, hex: string}>, 
+  presetKeys: string[]
+): PaletteSelections {
+  const presetKeySet = new Set(presetKeys);
+  const selections: PaletteSelections = {};
+  
+  allBeadPalette.forEach(color => {
+    const normalizedHex = color.hex.toUpperCase();
+    selections[normalizedHex] = presetKeySet.has(color.key);
   });
   
   return selections;

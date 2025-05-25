@@ -125,14 +125,14 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
   // 切换所有颜色的选择状态
   const toggleAllColors = (selected: boolean) => {
     allColors.forEach(color => {
-      onSelectionChange(color.key, selected);
+      onSelectionChange(color.hex.toUpperCase(), selected);
     });
   };
   
   // 切换一个组内所有颜色的选择状态
   const toggleGroupColors = (prefix: string, selected: boolean) => {
     colorGroups[prefix].forEach(color => {
-      onSelectionChange(color.key, selected);
+      onSelectionChange(color.hex.toUpperCase(), selected);
     });
   };
   
@@ -297,8 +297,8 @@ const CustomPaletteEditor: React.FC<CustomPaletteEditorProps> = ({
                   >
                     <input
                       type="checkbox"
-                      checked={!!currentSelections[color.key]}
-                      onChange={(e) => onSelectionChange(color.key, e.target.checked)}
+                      checked={!!currentSelections[color.hex.toUpperCase()]}
+                      onChange={(e) => onSelectionChange(color.hex.toUpperCase(), e.target.checked)}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800"
                     />
                     <div
