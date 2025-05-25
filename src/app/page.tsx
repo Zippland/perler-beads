@@ -25,6 +25,7 @@ import {
   convertPaletteToColorSystem, 
   getColorKeyByHex,
   getMardToHexMapping,
+  sortColorsByHue,
   ColorSystem 
 } from '../utils/colorSystemUtils';
 
@@ -144,6 +145,9 @@ export default function Home() {
   // 新增：高亮相关状态
   const [highlightColorKey, setHighlightColorKey] = useState<string | null>(null);
 
+  // 新增：完整色板切换状态
+  const [showFullPalette, setShowFullPalette] = useState<boolean>(false);
+
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelatedCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -196,23 +200,16 @@ export default function Home() {
     // 转换为数组并为每个hex值生成对应的色号系统显示
     const originalColors = Array.from(uniqueColorsMap.values());
     
-    return originalColors.map(color => {
+    const colorData = originalColors.map(color => {
       const displayKey = getColorKeyByHex(color.color.toUpperCase(), selectedColorSystem);
       return {
         key: displayKey,
         color: color.color
       };
-    }).sort((a, b) => {
-      // 对显示的色号进行排序
-      if (selectedColorSystem === 'MARD') {
-        return sortColorKeys(a.key, b.key);
-      } else {
-        // 对于数字色号系统，按数字排序
-        const aNum = parseInt(a.key) || 0;
-        const bNum = parseInt(b.key) || 0;
-        return aNum - bNum;
-      }
     });
+
+    // 使用色相排序而不是色号排序
+    return sortColorsByHue(colorData);
   }, [mappedPixelData, selectedColorSystem]);
 
   // 初始化时从本地存储加载自定义色板选择
@@ -1195,6 +1192,30 @@ export default function Home() {
     setHighlightColorKey(null);
   };
 
+  // 新增：切换完整色板显示
+  const handleToggleFullPalette = () => {
+    setShowFullPalette(!showFullPalette);
+  };
+
+  // 生成完整色板数据（用户自定义色板中选中的所有颜色）
+  const fullPaletteColors = useMemo(() => {
+    const selectedColors: { key: string; color: string }[] = [];
+    
+    Object.entries(customPaletteSelections).forEach(([hexValue, isSelected]) => {
+      if (isSelected) {
+        // 根据选择的色号系统获取显示的色号
+        const displayKey = getColorKeyByHex(hexValue, selectedColorSystem);
+        selectedColors.push({
+          key: displayKey,
+          color: hexValue
+        });
+      }
+    });
+    
+    // 使用色相排序而不是色号排序
+    return sortColorsByHue(selectedColors);
+  }, [customPaletteSelections, selectedColorSystem]);
+
   return (
     <>
     {/* 添加自定义动画样式 */}
@@ -1553,6 +1574,9 @@ export default function Home() {
                       isEraseMode={isEraseMode}
                       onEraseToggle={handleEraseToggle}
                       onHighlightColor={handleHighlightColor}
+                      fullPaletteColors={fullPaletteColors}
+                      showFullPalette={showFullPalette}
+                      onToggleFullPalette={handleToggleFullPalette}
                     />
                   </div>
                 </div>
