@@ -147,6 +147,16 @@ export default function Home() {
 
   // 新增：完整色板切换状态
   const [showFullPalette, setShowFullPalette] = useState<boolean>(false);
+  
+  // 新增：颜色替换相关状态
+  const [colorReplaceState, setColorReplaceState] = useState<{
+    isActive: boolean;
+    step: 'select-source' | 'select-target';
+    sourceColor?: { key: string; color: string };
+  }>({
+    isActive: false,
+    step: 'select-source'
+  });
 
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelatedCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -335,6 +345,15 @@ export default function Home() {
     // 确保在手动上色模式下才能使用擦除功能
     if (!isManualColoringMode) {
       return;
+    }
+    
+    // 如果当前在颜色替换模式，先退出替换模式
+    if (colorReplaceState.isActive) {
+      setColorReplaceState({
+        isActive: false,
+        step: 'select-source'
+      });
+      setHighlightColorKey(null);
     }
     
     setIsEraseMode(!isEraseMode);
@@ -913,6 +932,19 @@ export default function Home() {
     if (i >= 0 && i < N && j >= 0 && j < M) {
       const cellData = mappedPixelData[j][i];
 
+      // 颜色替换模式逻辑 - 选择源颜色
+      if (isClick && colorReplaceState.isActive && colorReplaceState.step === 'select-source') {
+        if (cellData && !cellData.isExternal && cellData.key && cellData.key !== TRANSPARENT_KEY) {
+          // 执行选择源颜色
+          handleCanvasColorSelect({
+            key: cellData.key,
+            color: cellData.color
+          });
+          setTooltipData(null);
+        }
+        return;
+      }
+
       // 一键擦除模式逻辑
       if (isClick && isEraseMode) {
         if (cellData && !cellData.isExternal && cellData.key && cellData.key !== TRANSPARENT_KEY) {
@@ -1195,6 +1227,127 @@ export default function Home() {
   // 新增：切换完整色板显示
   const handleToggleFullPalette = () => {
     setShowFullPalette(!showFullPalette);
+  };
+
+  // 新增：处理颜色选择，同时管理模式切换
+  const handleColorSelect = (colorData: { key: string; color: string; isExternal?: boolean }) => {
+    // 如果选择的是橡皮擦（透明色）且当前在颜色替换模式，退出替换模式
+    if (colorData.key === TRANSPARENT_KEY && colorReplaceState.isActive) {
+      setColorReplaceState({
+        isActive: false,
+        step: 'select-source'
+      });
+      setHighlightColorKey(null);
+    }
+    
+    // 选择任何颜色（包括橡皮擦）时，都应该退出一键擦除模式
+    if (isEraseMode) {
+      setIsEraseMode(false);
+    }
+    
+    // 设置选中的颜色
+    setSelectedColor(colorData);
+  };
+
+  // 新增：颜色替换相关处理函数
+  const handleColorReplaceToggle = () => {
+    setColorReplaceState(prev => {
+      if (prev.isActive) {
+        // 退出替换模式
+        return {
+          isActive: false,
+          step: 'select-source'
+        };
+      } else {
+        // 进入替换模式
+        // 只退出冲突的模式，但保持在手动上色模式下
+        setIsEraseMode(false);
+        setSelectedColor(null);
+        return {
+          isActive: true,
+          step: 'select-source'
+        };
+      }
+    });
+  };
+
+  // 新增：处理从画布选择源颜色
+  const handleCanvasColorSelect = (colorData: { key: string; color: string }) => {
+    if (colorReplaceState.isActive && colorReplaceState.step === 'select-source') {
+      // 高亮显示选中的颜色
+      setHighlightColorKey(colorData.color);
+      // 进入第二步：选择目标颜色
+      setColorReplaceState({
+        isActive: true,
+        step: 'select-target',
+        sourceColor: colorData
+      });
+    }
+  };
+
+  // 新增：执行颜色替换
+  const handleColorReplace = (sourceColor: { key: string; color: string }, targetColor: { key: string; color: string }) => {
+    if (!mappedPixelData || !gridDimensions) return;
+
+    const { N, M } = gridDimensions;
+    const newPixelData = mappedPixelData.map(row => row.map(cell => ({ ...cell })));
+    let replaceCount = 0;
+
+    // 遍历所有像素，替换匹配的颜色
+    for (let j = 0; j < M; j++) {
+      for (let i = 0; i < N; i++) {
+        const currentCell = newPixelData[j][i];
+        if (currentCell && !currentCell.isExternal && 
+            currentCell.color.toUpperCase() === sourceColor.color.toUpperCase()) {
+          // 替换颜色
+          newPixelData[j][i] = {
+            key: targetColor.key,
+            color: targetColor.color,
+            isExternal: false
+          };
+          replaceCount++;
+        }
+      }
+    }
+
+    if (replaceCount > 0) {
+      // 更新像素数据
+      setMappedPixelData(newPixelData);
+
+      // 重新计算颜色统计
+      if (colorCounts) {
+        const newColorCounts: { [hexKey: string]: { count: number; color: string } } = {};
+        let newTotalCount = 0;
+
+        newPixelData.flat().forEach(cell => {
+          if (cell && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
+            const cellHex = cell.color.toUpperCase();
+            if (!newColorCounts[cellHex]) {
+              newColorCounts[cellHex] = {
+                count: 0,
+                color: cellHex
+              };
+            }
+            newColorCounts[cellHex].count++;
+            newTotalCount++;
+          }
+        });
+
+        setColorCounts(newColorCounts);
+        setTotalBeadCount(newTotalCount);
+      }
+
+      console.log(`颜色替换完成：将 ${replaceCount} 个 ${sourceColor.key} 替换为 ${targetColor.key}`);
+    }
+
+    // 退出替换模式
+    setColorReplaceState({
+      isActive: false,
+      step: 'select-source'
+    });
+    
+    // 清除高亮
+    setHighlightColorKey(null);
   };
 
   // 生成完整色板数据（用户自定义色板中选中的所有颜色）
@@ -1568,7 +1721,7 @@ export default function Home() {
                     <ColorPalette
                       colors={[transparentColorData, ...currentGridColors]}
                       selectedColor={selectedColor}
-                      onColorSelect={setSelectedColor}
+                      onColorSelect={handleColorSelect}
                       transparentKey={TRANSPARENT_KEY}
                       selectedColorSystem={selectedColorSystem}
                       isEraseMode={isEraseMode}
@@ -1577,6 +1730,9 @@ export default function Home() {
                       fullPaletteColors={fullPaletteColors}
                       showFullPalette={showFullPalette}
                       onToggleFullPalette={handleToggleFullPalette}
+                      colorReplaceState={colorReplaceState}
+                      onColorReplaceToggle={handleColorReplaceToggle}
+                      onColorReplace={handleColorReplace}
                     />
                   </div>
                 </div>
