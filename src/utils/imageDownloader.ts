@@ -186,81 +186,108 @@ export async function downloadImage({
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, downloadWidth, downloadHeight);
   
-    // 绘制标题栏背景
-    // const gradientHeight = titleBarHeight; // 移除未使用的 gradientHeight
-    const gradient = ctx.createLinearGradient(0, 0, downloadWidth, 0); // 水平渐变更美观
-    gradient.addColorStop(0, '#4F46E5'); // 靛蓝色 (indigo-600)
-    gradient.addColorStop(0.5, '#7C3AED'); // 紫色 (violet-600)
-    gradient.addColorStop(1, '#C026D3'); // 洋红色 (fuchsia-600)
-    
-    ctx.fillStyle = gradient;
+    // 重新设计的现代简洁标题栏
+    // 1. 主背景 - 纯净的深色，专业感
+    ctx.fillStyle = '#1F2937'; // 深灰色，既有专业感又不抢夺主要内容
     ctx.fillRect(0, 0, downloadWidth, titleBarHeight);
     
-    // 添加装饰元素 - 左侧圆点图案
-    const dotSize = titleBarHeight / 20;
-    const dotSpacing = titleBarHeight / 10;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    // 2. 左侧品牌色块 - 作为Logo载体
+    const brandBlockWidth = titleBarHeight * 0.8;
+    const brandGradient = ctx.createLinearGradient(0, 0, brandBlockWidth, titleBarHeight);
+    brandGradient.addColorStop(0, '#6366F1'); // 现代蓝色
+    brandGradient.addColorStop(1, '#8B5CF6'); // 现代紫色
     
-    for (let y = dotSpacing; y < titleBarHeight - dotSpacing; y += dotSpacing) {
-      for (let x = dotSpacing; x < titleBarHeight; x += dotSpacing) {
+    ctx.fillStyle = brandGradient;
+    ctx.fillRect(0, 0, brandBlockWidth, titleBarHeight);
+    
+    // 3. 绘制现代Logo - 几何图形组合
+    const logoSize = titleBarHeight * 0.4;
+    const logoX = brandBlockWidth / 2;
+    const logoY = titleBarHeight / 2;
+    
+    // Logo: 拼豆的抽象表示 - 圆角方块阵列
+    ctx.fillStyle = '#FFFFFF';
+    const beadSize = logoSize / 4;
+    const beadSpacing = beadSize * 1.2;
+    
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        const beadX = logoX - logoSize/2 + col * beadSpacing;
+        const beadY = logoY - logoSize/2 + row * beadSpacing;
+        
+        // 绘制圆角方块，模拟拼豆
         ctx.beginPath();
-        ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+        ctx.roundRect(beadX, beadY, beadSize, beadSize, beadSize * 0.2);
         ctx.fill();
+        
+        // 添加中心小圆点，增加拼豆特征
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.3)';
+        ctx.beginPath();
+        ctx.arc(beadX + beadSize/2, beadY + beadSize/2, beadSize * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
       }
     }
     
-    // 添加右侧装饰线条
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 2;
-    const lineOffset = downloadWidth / 3; // 线条从右三分之一处开始
+    // 4. 主标题 - 现代字体，清晰层次
+    const mainTitleFontSize = Math.max(20, Math.floor(titleFontSize * 0.8));
+    const subTitleFontSize = Math.max(12, Math.floor(titleFontSize * 0.45));
     
-    for (let i = 0; i < 3; i++) {
-      const startX = lineOffset + (i * 60 * titleBarScale);
-      ctx.beginPath();
-      ctx.moveTo(startX, 0);
-      ctx.lineTo(startX + titleBarHeight, titleBarHeight);
-      ctx.stroke();
-    }
-    
-    // 绘制标题文字
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${titleFontSize}px sans-serif`;
+    ctx.font = `600 ${mainTitleFontSize}px system-ui, -apple-system, sans-serif`; // 现代字体栈
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     
-    // 添加文字阴影效果
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 5;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
+    // 主标题位置
+    const titleStartX = brandBlockWidth + titleBarHeight * 0.3;
+    const mainTitleY = titleBarHeight * 0.4;
     
-    // 居中绘制标题
-    ctx.fillText('七卡瓦 拼豆底稿生成器', titleBarHeight / 2, titleBarHeight / 2);
+    ctx.fillText('七卡瓦', titleStartX, mainTitleY);
     
-    // 重置阴影
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
+    // 5. 副标题 - 功能说明
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.font = `400 ${subTitleFontSize}px system-ui, -apple-system, sans-serif`;
+    const subTitleY = titleBarHeight * 0.65;
     
-    // 预留二维码位置
-    const qrX = downloadWidth - qrSize - titleBarHeight / 4;
+    ctx.fillText('拼豆图纸生成工具', titleStartX, subTitleY);
+    
+    
+    
+    // 7. 优雅的分割线
+    const separatorY = titleBarHeight - 1;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, separatorY);
+    ctx.lineTo(downloadWidth, separatorY);
+    ctx.stroke();
+    
+    // 8. 二维码区域 - 重新设计
+    const qrX = downloadWidth - qrSize - titleBarHeight * 0.15;
     const qrY = (titleBarHeight - qrSize) / 2;
     
-    // 绘制二维码背景
+    // 二维码背景 - 圆角，更现代
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(qrX, qrY, qrSize, qrSize);
+    ctx.beginPath();
+    ctx.roundRect(qrX, qrY, qrSize, qrSize, qrSize * 0.08);
+    ctx.fill();
     
     // 绘制二维码图片或占位符
     if (qrCodeImage.complete && qrCodeImage.naturalWidth !== 0) {
-      // 图片加载成功，绘制图片
+      // 使用裁剪区域绘制圆角二维码
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(qrX, qrY, qrSize, qrSize, qrSize * 0.08);
+      ctx.clip();
       ctx.drawImage(qrCodeImage, qrX, qrY, qrSize, qrSize);
+      ctx.restore();
     } else {
-      // 图片加载失败，绘制占位文字
-      ctx.fillStyle = '#6D28D9'; // 紫色文字
-      const qrFontSize = Math.max(14, Math.floor(14 * titleBarScale));
-      ctx.font = `${qrFontSize}px sans-serif`;
+      // 占位符设计
+      ctx.fillStyle = '#6366F1';
+      const qrPlaceholderFontSize = Math.max(10, Math.floor(14 * titleBarScale));
+      ctx.font = `500 ${qrPlaceholderFontSize}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText('扫码访问', qrX + qrSize / 2, qrY + qrSize / 2);
     }
   
@@ -394,18 +421,76 @@ export async function downloadImage({
       M * downloadCellSize
     );
 
-    // 绘制小红书标识 - 在网格图片和统计信息之间，靠右
-    const xiaohongshuFontSize = Math.max(12, Math.floor(statsFontSize * 0.9));
-    ctx.fillStyle = '#E60026'; // 小红书品牌红色，更显眼
-    ctx.font = `bold ${xiaohongshuFontSize}px sans-serif`; // 加粗更显眼
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
+    // 添加水印 - 小红书标识，防止被截图去除
+    // 主水印：放在网格右下角，带背景设计，清晰明显
+    const watermarkFontSize = Math.max(12, Math.floor(downloadCellSize * 0.7));
     
-    // 计算小红书标识的位置：网格下方，统计信息上方
-    const xiaohongshuX = downloadWidth - 20; // 右侧留20px边距
-    const xiaohongshuY = titleBarHeight + extraTopMargin + M * downloadCellSize + axisLabelSize + (xiaohongshuAreaHeight / 2);
+    // 计算主水印位置和尺寸
+    const mainWatermarkText = '小红书@七卡瓦';
+    ctx.font = `600 ${watermarkFontSize}px system-ui, -apple-system, sans-serif`;
+    const textMetrics = ctx.measureText(mainWatermarkText);
+    const textWidth = textMetrics.width;
+    const textHeight = watermarkFontSize;
     
-    ctx.fillText('图纸工具：小红书@七卡瓦', xiaohongshuX, xiaohongshuY);
+    const mainWatermarkX = extraLeftMargin + axisLabelSize + N * downloadCellSize - textWidth - 15;
+    const mainWatermarkY = titleBarHeight + extraTopMargin + axisLabelSize + M * downloadCellSize - 15;
+    
+    // 绘制水印背景 - 半透明白色背景，增强可读性
+    const bgPadding = 6;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect(
+      mainWatermarkX - bgPadding, 
+      mainWatermarkY - textHeight - bgPadding, 
+      textWidth + bgPadding * 2, 
+      textHeight + bgPadding * 2, 
+      4
+    );
+    ctx.fill();
+    
+    // 绘制水印边框 - 细边框增加设计感
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // 绘制水印文字 - 深色，清晰可见
+    ctx.fillStyle = '#374151'; // 深灰色，清晰但不刺眼
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(mainWatermarkText, mainWatermarkX, mainWatermarkY);
+    
+    // 副水印：放在网格左上角，简洁版本
+    const secondaryWatermarkFontSize = Math.max(10, Math.floor(downloadCellSize * 0.5));
+    const secondaryText = '@七卡瓦';
+    
+    ctx.font = `500 ${secondaryWatermarkFontSize}px system-ui, -apple-system, sans-serif`;
+    const secondaryMetrics = ctx.measureText(secondaryText);
+    const secondaryWidth = secondaryMetrics.width;
+    const secondaryHeight = secondaryWatermarkFontSize;
+    
+    const secondaryWatermarkX = extraLeftMargin + axisLabelSize + 15;
+    const secondaryWatermarkY = titleBarHeight + extraTopMargin + axisLabelSize + secondaryHeight + 15;
+    
+    // 副水印背景
+    const secondaryBgPadding = 4;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.beginPath();
+    ctx.roundRect(
+      secondaryWatermarkX - secondaryBgPadding,
+      secondaryWatermarkY - secondaryHeight - secondaryBgPadding,
+      secondaryWidth + secondaryBgPadding * 2,
+      secondaryHeight + secondaryBgPadding * 2,
+      3
+    );
+    ctx.fill();
+    
+    // 副水印文字
+    ctx.fillStyle = '#6B7280'; // 中等灰色，存在但不突兀
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(secondaryText, secondaryWatermarkX, secondaryWatermarkY);
+
+
 
     // 绘制统计信息
     if (includeStats && colorCounts) {
@@ -501,6 +586,42 @@ export async function downloadImage({
       ctx.font = `bold ${statsFontSize}px sans-serif`;
       ctx.textAlign = 'right';
       ctx.fillText(`总计: ${totalBeadCount} 颗`, downloadWidth - statsPadding, totalY);
+      
+      // 统计区域水印 - 第三重保护，清晰明显
+      const statsWatermarkFontSize = Math.max(10, Math.floor(statsFontSize * 0.7));
+      const statsWatermarkText = '图纸来源：小红书@七卡瓦';
+      
+      ctx.font = `500 ${statsWatermarkFontSize}px system-ui, -apple-system, sans-serif`;
+      const statsTextMetrics = ctx.measureText(statsWatermarkText);
+      const statsTextWidth = statsTextMetrics.width;
+      const statsTextHeight = statsWatermarkFontSize;
+      
+      const statsWatermarkX = statsPadding;
+      const statsWatermarkY = totalY + 20;
+      
+      // 统计区域水印背景
+      const statsBgPadding = 5;
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.9)'; // 浅灰背景，更柔和
+      ctx.beginPath();
+      ctx.roundRect(
+        statsWatermarkX - statsBgPadding,
+        statsWatermarkY - statsTextHeight - statsBgPadding,
+        statsTextWidth + statsBgPadding * 2,
+        statsTextHeight + statsBgPadding * 2,
+        3
+      );
+      ctx.fill();
+      
+      // 统计区域水印边框
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // 统计区域水印文字
+      ctx.fillStyle = '#64748B'; // 清晰的深灰色
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(statsWatermarkText, statsWatermarkX, statsWatermarkY);
       
       // 更新统计区域高度的计算 - 需要包含新增的顶部间距
       const footerHeight = 30; // 总计部分高度
