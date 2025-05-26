@@ -110,6 +110,9 @@ export async function downloadImage({
     // 计算网格尺寸
     const gridWidth = N * downloadCellSize;
     const gridHeight = M * downloadCellSize;
+    
+    // 计算小红书标识区域的高度
+    const xiaohongshuAreaHeight = 35; // 为小红书名字预留的底部空间
   
     // 计算标题栏高度（根据图片大小自动调整）
     const baseTitleBarHeight = 80; // 增大基础高度
@@ -161,9 +164,9 @@ export async function downloadImage({
       statsHeight = titleHeight + (numRows * statsRowHeight) + footerHeight + (statsPadding * 2) + statsTopMargin;
     }
   
-    // 调整画布大小，包含标题栏、坐标轴和统计区域
+    // 调整画布大小，包含标题栏、坐标轴、统计区域和小红书标识区域
     const downloadWidth = gridWidth + axisLabelSize + extraLeftMargin;
-    let downloadHeight = titleBarHeight + gridHeight + axisLabelSize + statsHeight + extraTopMargin;
+    let downloadHeight = titleBarHeight + gridHeight + axisLabelSize + statsHeight + extraTopMargin + xiaohongshuAreaHeight;
   
     let downloadCanvas = document.createElement('canvas');
     downloadCanvas.width = downloadWidth;
@@ -391,6 +394,19 @@ export async function downloadImage({
       M * downloadCellSize
     );
 
+    // 绘制小红书标识 - 在网格图片和统计信息之间，靠右
+    const xiaohongshuFontSize = Math.max(12, Math.floor(statsFontSize * 0.9));
+    ctx.fillStyle = '#E60026'; // 小红书品牌红色，更显眼
+    ctx.font = `bold ${xiaohongshuFontSize}px sans-serif`; // 加粗更显眼
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    // 计算小红书标识的位置：网格下方，统计信息上方
+    const xiaohongshuX = downloadWidth - 20; // 右侧留20px边距
+    const xiaohongshuY = titleBarHeight + extraTopMargin + M * downloadCellSize + axisLabelSize + (xiaohongshuAreaHeight / 2);
+    
+    ctx.fillText('图纸工具：小红书@七卡瓦', xiaohongshuX, xiaohongshuY);
+
     // 绘制统计信息
     if (includeStats && colorCounts) {
       const colorKeys = Object.keys(colorCounts).sort(sortColorKeys);
@@ -493,8 +509,8 @@ export async function downloadImage({
 
     // 重新计算画布高度并调整
     if (includeStats && colorCounts) {
-      // 调整画布大小，包含计算后的统计区域
-      const newDownloadHeight = titleBarHeight + extraTopMargin + M * downloadCellSize + axisLabelSize + statsHeight;
+      // 调整画布大小，包含计算后的统计区域和小红书标识区域
+      const newDownloadHeight = titleBarHeight + extraTopMargin + M * downloadCellSize + axisLabelSize + statsHeight + xiaohongshuAreaHeight;
       
       if (downloadHeight !== newDownloadHeight) {
         // 如果高度变化了，需要创建新的画布并复制当前内容
