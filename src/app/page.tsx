@@ -752,6 +752,41 @@ export default function Home() {
     setIsMounted(true);
   }, []);
 
+  // 添加URL重定向检查
+  useEffect(() => {
+    // 检查是否在浏览器环境中
+    if (typeof window !== 'undefined') {
+      const currentUrl = window.location.href;
+      const targetDomain = 'https://perlerbeads.zippland.com/';
+      
+      // 检查当前URL是否不是目标域名
+      if (!currentUrl.startsWith(targetDomain)) {
+        console.log(`当前URL: ${currentUrl}`);
+        console.log(`目标URL: ${targetDomain}`);
+        console.log('正在重定向到官方域名...');
+        
+        // 保留当前路径和查询参数
+        const currentPath = window.location.pathname;
+        const currentSearch = window.location.search;
+        const currentHash = window.location.hash;
+        
+        // 构建完整的目标URL
+        let redirectUrl = targetDomain;
+        
+        // 如果不是根路径，添加路径
+        if (currentPath && currentPath !== '/') {
+          redirectUrl = redirectUrl.replace(/\/$/, '') + currentPath;
+        }
+        
+        // 添加查询参数和哈希
+        redirectUrl += currentSearch + currentHash;
+        
+        // 执行重定向
+        window.location.replace(redirectUrl);
+      }
+    }
+  }, []); // 只在组件首次挂载时执行
+
     // --- Download function (ensure filename includes palette) ---
     const handleDownloadRequest = (options?: GridDownloadOptions) => {
         // 调用移动到utils/imageDownloader.ts中的downloadImage函数
