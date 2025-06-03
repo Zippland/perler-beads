@@ -757,10 +757,18 @@ export default function Home() {
     // 检查是否在浏览器环境中
     if (typeof window !== 'undefined') {
       const currentUrl = window.location.href;
+      const currentHostname = window.location.hostname;
       const targetDomain = 'https://perlerbeads.zippland.com/';
       
-      // 检查当前URL是否不是目标域名
-      if (!currentUrl.startsWith(targetDomain)) {
+      // 排除localhost和127.0.0.1等本地开发环境
+      const isLocalhost = currentHostname === 'localhost' || 
+                         currentHostname === '127.0.0.1' || 
+                         currentHostname.startsWith('192.168.') ||
+                         currentHostname.startsWith('10.') ||
+                         currentHostname.endsWith('.local');
+      
+      // 检查当前URL是否不是目标域名，且不是本地开发环境
+      if (!currentUrl.startsWith(targetDomain) && !isLocalhost) {
         console.log(`当前URL: ${currentUrl}`);
         console.log(`目标URL: ${targetDomain}`);
         console.log('正在重定向到官方域名...');
@@ -783,6 +791,8 @@ export default function Home() {
         
         // 执行重定向
         window.location.replace(redirectUrl);
+      } else if (isLocalhost) {
+        console.log(`检测到本地开发环境 (${currentHostname})，跳过重定向`);
       }
     }
   }, []); // 只在组件首次挂载时执行

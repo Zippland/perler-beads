@@ -421,44 +421,6 @@ export async function downloadImage({
       M * downloadCellSize
     );
 
-    // 添加水印 - 小红书标识，防止被截图去除
-    // 主水印：放在网格右下角，带背景设计，清晰明显
-    const watermarkFontSize = Math.max(12, Math.floor(downloadCellSize * 0.7));
-    
-    // 计算主水印位置和尺寸
-    const mainWatermarkText = '小红书@七卡瓦';
-    ctx.font = `600 ${watermarkFontSize}px system-ui, -apple-system, sans-serif`;
-    const textMetrics = ctx.measureText(mainWatermarkText);
-    const textWidth = textMetrics.width;
-    const textHeight = watermarkFontSize;
-    
-    const mainWatermarkX = extraLeftMargin + axisLabelSize + N * downloadCellSize - textWidth - 15;
-    const mainWatermarkY = titleBarHeight + extraTopMargin + axisLabelSize + M * downloadCellSize - 15;
-    
-    // 绘制水印背景 - 半透明白色背景，增强可读性
-    const bgPadding = 6;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.beginPath();
-    ctx.roundRect(
-      mainWatermarkX - bgPadding, 
-      mainWatermarkY - textHeight - bgPadding, 
-      textWidth + bgPadding * 2, 
-      textHeight + bgPadding * 2, 
-      4
-    );
-    ctx.fill();
-    
-    // 绘制水印边框 - 细边框增加设计感
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    // 绘制水印文字 - 深色，清晰可见
-    ctx.fillStyle = '#374151'; // 深灰色，清晰但不刺眼
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(mainWatermarkText, mainWatermarkX, mainWatermarkY);
-    
     // 副水印：放在网格左上角，简洁版本
     const secondaryWatermarkFontSize = Math.max(10, Math.floor(downloadCellSize * 0.5));
     const secondaryText = '@七卡瓦';
@@ -489,8 +451,6 @@ export async function downloadImage({
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
     ctx.fillText(secondaryText, secondaryWatermarkX, secondaryWatermarkY);
-
-
 
     // 绘制统计信息
     if (includeStats && colorCounts) {
