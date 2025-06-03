@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, ChangeEvent, DragEvent, useEffect, useMemo } from 'react';
+import React, { useState, useRef, ChangeEvent, DragEvent, useEffect, useMemo, useCallback } from 'react';
 import Script from 'next/script';
 import ColorPalette from '../components/ColorPalette';
 // 导入像素化工具和类型
@@ -158,6 +158,9 @@ export default function Home() {
     step: 'select-source'
   });
 
+  // 新增：组件挂载状态
+  const [isMounted, setIsMounted] = useState<boolean>(false);
+
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelatedCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -250,7 +253,7 @@ export default function Home() {
       
       if (hasValidData) {
         setCustomPaletteSelections(validSelections);
-      setIsCustomPalette(true);
+    setIsCustomPalette(true);
     } else {
         console.log('所有数据都无效，清除localStorage并重新初始化');
         // 如果本地数据无效，清除localStorage并默认选择所有颜色
@@ -285,25 +288,79 @@ export default function Home() {
 
   // --- Event Handlers ---
 
+  // 添加一个安全的文件输入触发函数
+  const triggerFileInput = useCallback(() => {
+    // 检查组件是否已挂载
+    if (!isMounted) {
+      console.warn("组件尚未完全挂载，延迟触发文件选择");
+      setTimeout(() => triggerFileInput(), 200);
+      return;
+    }
+    
+    // 检查 ref 是否存在
+    if (fileInputRef.current) {
+      try {
+        fileInputRef.current.click();
+      } catch (error) {
+        console.error("触发文件选择失败:", error);
+        // 如果直接点击失败，尝试延迟执行
+        setTimeout(() => {
+          try {
+            fileInputRef.current?.click();
+          } catch (retryError) {
+            console.error("重试触发文件选择失败:", retryError);
+          }
+        }, 100);
+      }
+    } else {
+      // 如果 ref 不存在，延迟重试
+      console.warn("文件输入引用不存在，将在100ms后重试");
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          try {
+            fileInputRef.current.click();
+          } catch (error) {
+            console.error("延迟触发文件选择失败:", error);
+          }
+        }
+      }, 100);
+    }
+  }, [isMounted]);
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
       processFile(file);
     }
+    // 重置文件输入框的值，这样用户可以重新选择同一个文件
+    if (event.target) {
+      event.target.value = '';
+    }
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (event.dataTransfer.files && event.dataTransfer.files[0]) {
-      const file = event.dataTransfer.files[0];
-      if (file.type.startsWith('image/')) {
-        setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
-        processFile(file);
-      } else {
-        alert("请拖放图片文件 (JPG, PNG)");
+    
+    try {
+      if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+        const file = event.dataTransfer.files[0];
+        
+        // 更严格的文件类型检查
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        const fileType = file.type.toLowerCase();
+        
+        if (allowedTypes.includes(fileType) || file.type.startsWith('image/')) {
+          setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
+          processFile(file);
+        } else {
+          alert(`不支持的文件类型: ${file.type || '未知'}。请拖放 JPG 或 PNG 格式的图片文件。`);
+        }
       }
+    } catch (error) {
+      console.error("处理拖拽文件时发生错误:", error);
+      alert("处理文件时发生错误，请重试。");
     }
   };
 
@@ -677,6 +734,23 @@ export default function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originalImageSrc, granularity, similarityThreshold, customPaletteSelections, pixelationMode, remapTrigger]);
+
+  // 确保文件输入框引用在组件挂载后正确设置
+  useEffect(() => {
+    // 延迟执行，确保DOM完全渲染
+    const timer = setTimeout(() => {
+      if (!fileInputRef.current) {
+        console.warn("文件输入框引用在组件挂载后仍为null，这可能会导致上传功能异常");
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 设置组件挂载状态
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
     // --- Download function (ensure filename includes palette) ---
     const handleDownloadRequest = (options?: GridDownloadOptions) => {
@@ -1494,8 +1568,8 @@ export default function Home() {
         {/* Apply dark mode styles to the Drop Zone */}
         <div
           onDrop={handleDrop} onDragOver={handleDragOver} onDragEnter={handleDragOver}
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 sm:p-8 text-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 transition-all duration-300 w-full md:max-w-md flex flex-col justify-center items-center shadow-sm hover:shadow-md"
+          onClick={isMounted ? triggerFileInput : undefined}
+          className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 sm:p-8 text-center ${isMounted ? 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800' : 'cursor-wait'} transition-all duration-300 w-full md:max-w-md flex flex-col justify-center items-center shadow-sm hover:shadow-md`}
           style={{ minHeight: '130px' }}
         >
           {/* Icon color */}
