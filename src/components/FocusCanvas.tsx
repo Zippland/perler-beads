@@ -32,6 +32,7 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState<{ x: number; y: number } | null>(null);
+  const [lastPinchDistance, setLastPinchDistance] = useState<number | null>(null);
 
   // 计算格子大小
   const cellSize = Math.max(15, Math.min(40, 300 / Math.max(gridDimensions.N, gridDimensions.M)));
@@ -173,6 +174,16 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
     return null;
   };
 
+  // 计算两指间距离
+  const getTouchDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
   // 处理点击
   const handleClick = useCallback((event: React.MouseEvent | React.TouchEvent) => {
     event.preventDefault();
@@ -204,10 +215,13 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         x: event.touches[0].clientX,
         y: event.touches[0].clientY
       });
+      setLastPinchDistance(null);
     } else if (event.touches.length === 2) {
       // 双指缩放开始
       event.preventDefault();
       setIsDragging(false);
+      setLastPanPoint(null);
+      setLastPinchDistance(getTouchDistance(event.touches));
     }
   }, []);
 
@@ -228,21 +242,38 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         x: event.touches[0].clientX,
         y: event.touches[0].clientY
       });
-    } else if (event.touches.length === 2) {
-      // 双指缩放处理（简化版本）
-      // 这里可以添加更复杂的双指缩放逻辑
+    } else if (event.touches.length === 2 && lastPinchDistance !== null) {
+      // 双指缩放处理
+      const currentDistance = getTouchDistance(event.touches);
+      const scaleRatio = currentDistance / lastPinchDistance;
+      
+      // 限制缩放范围并应用缩放
+      const newScale = Math.max(0.3, Math.min(3, canvasScale * scaleRatio));
+      onScaleChange(newScale);
+      
+      // 更新距离记录
+      setLastPinchDistance(currentDistance);
     }
-  }, [isDragging, lastPanPoint, canvasOffset, onOffsetChange]);
+  }, [isDragging, lastPanPoint, canvasOffset, onOffsetChange, lastPinchDistance, canvasScale, onScaleChange]);
 
   const handleTouchEnd = useCallback((event: React.TouchEvent) => {
     if (event.touches.length === 0) {
       setIsDragging(false);
       setLastPanPoint(null);
+      setLastPinchDistance(null);
       
       // 如果没有移动太多，视为点击
       if (!isDragging) {
         handleClick(event);
       }
+    } else if (event.touches.length === 1) {
+      // 从双指缩放切换到单指拖拽
+      setLastPinchDistance(null);
+      setIsDragging(true);
+      setLastPanPoint({
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY
+      });
     }
   }, [isDragging, handleClick]);
 
