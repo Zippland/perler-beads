@@ -32,8 +32,15 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
   selectionArea,
   onClearSelection
 }) => {
-  const [magnifierPosition, setMagnifierPosition] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+  // 计算初始位置，确保在屏幕中央
+  const getInitialPosition = () => ({
+    x: Math.max(50, (window.innerWidth - 400) / 2),
+    y: Math.max(50, (window.innerHeight - 400) / 2)
+  });
+  
+  const [magnifierPosition, setMagnifierPosition] = useState<{ x: number; y: number }>(getInitialPosition);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   
   const magnifierRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,14 +69,9 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
     canvas.width = width * magnifiedCellSize;
     canvas.height = height * magnifiedCellSize;
     
-    // 设置画布的显示尺寸，确保不会太大
-    const maxDisplayWidth = 400;
-    const maxDisplayHeight = 400;
-    const displayWidth = Math.min(canvas.width, maxDisplayWidth);
-    const displayHeight = Math.min(canvas.height, maxDisplayHeight);
-    
-    canvas.style.width = `${displayWidth}px`;
-    canvas.style.height = `${displayHeight}px`;
+    // 保持真实尺寸，不压缩
+    canvas.style.width = `${canvas.width}px`;
+    canvas.style.height = `${canvas.height}px`;
 
     // 清空画布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -141,7 +143,7 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
     }
   }, [selectionArea, mappedPixelData, selectedColor, onPixelEdit]);
 
-  // 处理拖拽移动
+  // 处理拖拽移动 - 鼠标事件
   const handleTitleBarMouseDown = useCallback((event: React.MouseEvent) => {
     // 只有点击在标题栏区域且不是按钮时才开始拖拽
     const target = event.target as HTMLElement;
@@ -149,33 +151,101 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
       return; // 点击按钮时不拖拽
     }
     
+    if (magnifierRef.current) {
+      const rect = magnifierRef.current.getBoundingClientRect();
+      // 记录鼠标相对于窗口左上角的偏移
+      setDragOffset({
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      });
+    }
+    
     setIsDragging(true);
+    // 阻止页面滚动
+    document.body.style.overflow = 'hidden';
+    event.preventDefault();
+  }, []);
+
+  // 处理拖拽移动 - 触摸事件
+  const handleTitleBarTouchStart = useCallback((event: React.TouchEvent) => {
+    // 只有点击在标题栏区域且不是按钮时才开始拖拽
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'BUTTON' || target.closest('button')) {
+      return; // 点击按钮时不拖拽
+    }
+    
+    const touch = event.touches[0];
+    if (!touch) return;
+    
+    if (magnifierRef.current) {
+      const rect = magnifierRef.current.getBoundingClientRect();
+      // 记录触摸相对于窗口左上角的偏移
+      setDragOffset({
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top
+      });
+    }
+    
+    setIsDragging(true);
+    // 阻止页面滚动
+    document.body.style.overflow = 'hidden';
     event.preventDefault();
   }, []);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (isDragging && magnifierRef.current) {
-      const rect = magnifierRef.current.getBoundingClientRect();
-      const newX = Math.max(0, Math.min(window.innerWidth - rect.width, event.clientX - rect.width / 2));
-      const newY = Math.max(0, Math.min(window.innerHeight - rect.height, event.clientY - rect.height / 2));
+    if (isDragging) {
+      event.preventDefault();
+      event.stopPropagation();
+      // 计算新位置，保持鼠标相对于窗口的偏移不变，不限制边界
+      const newX = event.clientX - dragOffset.x;
+      const newY = event.clientY - dragOffset.y;
       setMagnifierPosition({ x: newX, y: newY });
     }
-  }, [isDragging]);
+  }, [isDragging, dragOffset]);
+
+  const handleTouchMove = useCallback((event: TouchEvent) => {
+    if (isDragging) {
+      event.preventDefault();
+      event.stopPropagation();
+      const touch = event.touches[0];
+      if (!touch) return;
+      
+      // 计算新位置，保持触摸相对于窗口的偏移不变，不限制边界
+      const newX = touch.clientX - dragOffset.x;
+      const newY = touch.clientY - dragOffset.y;
+      setMagnifierPosition({ x: newX, y: newY });
+    }
+  }, [isDragging, dragOffset]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
+    // 恢复页面滚动
+    document.body.style.overflow = '';
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    // 恢复页面滚动
+    document.body.style.overflow = '';
   }, []);
 
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+      
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
+        // 清理时恢复滚动
+        document.body.style.overflow = '';
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   // 重新渲染放大视图
   useEffect(() => {
@@ -205,15 +275,14 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
           className="fixed bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 z-50 select-none"
           style={{
             left: magnifierPosition.x,
-            top: magnifierPosition.y,
-            maxWidth: '500px',
-            maxHeight: '500px'
+            top: magnifierPosition.y
           }}
         >
           {/* 标题栏 */}
           <div 
             className="flex items-center justify-between p-3 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-t-xl cursor-move"
             onMouseDown={handleTitleBarMouseDown}
+            onTouchStart={handleTitleBarTouchStart}
           >
             <div className="flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -249,7 +318,7 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
 
           {/* 放大视图内容 */}
           <div className="p-3">
-            <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+            <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-auto max-h-96">
               <canvas
                 ref={canvasRef}
                 onClick={handleMagnifiedClick}

@@ -85,10 +85,14 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
     };
 
     const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
       handleMove(e.clientX, e.clientY);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
       if (e.touches.length > 0) {
         handleMove(e.touches[0].clientX, e.touches[0].clientY);
       }
@@ -96,9 +100,14 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
 
     const handleEnd = () => {
       setIsDragging(false);
+      // 恢复页面滚动
+      document.body.style.overflow = '';
     };
 
     if (isDragging) {
+      // 阻止页面滚动
+      document.body.style.overflow = 'hidden';
+      
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleEnd);
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -109,6 +118,8 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
         document.removeEventListener('mouseup', handleEnd);
         document.removeEventListener('touchmove', handleTouchMove);
         document.removeEventListener('touchend', handleEnd);
+        // 清理时恢复滚动
+        document.body.style.overflow = '';
       };
     }
   }, [isDragging, dragOffset]);

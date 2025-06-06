@@ -174,7 +174,13 @@ export default function Home() {
 
   // 放大镜切换处理函数
   const handleToggleMagnifier = () => {
-    setIsMagnifierActive(!isMagnifierActive);
+    const newActiveState = !isMagnifierActive;
+    setIsMagnifierActive(newActiveState);
+    
+    // 如果关闭放大镜，清除选择区域，重新开始
+    if (!newActiveState) {
+      setMagnifierSelectionArea(null);
+    }
   };
 
   // 放大镜像素编辑处理函数
@@ -2141,6 +2147,7 @@ export default function Home() {
           });
           setHighlightColorKey(null);
           setIsMagnifierActive(false);
+          setMagnifierSelectionArea(null);
         }}
         onToggleMagnifier={handleToggleMagnifier}
         isMagnifierActive={isMagnifierActive}
