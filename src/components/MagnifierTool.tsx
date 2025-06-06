@@ -15,6 +15,7 @@ interface MagnifierToolProps {
   onClearSelection: () => void;
   isFloatingActive: boolean;
   onActivateFloating: () => void;
+  highlightColorKey?: string | null;
 }
 
 interface SelectionArea {
@@ -34,7 +35,8 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
   selectionArea,
   onClearSelection,
   isFloatingActive,
-  onActivateFloating
+  onActivateFloating,
+  highlightColorKey
 }) => {
   // 计算初始位置，确保在屏幕中央
   const getInitialPosition = () => ({
@@ -102,6 +104,17 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
             magnifiedCellSize
           );
 
+          // 如果有高亮颜色且当前像素不是目标颜色，添加灰度蒙版
+          if (highlightColorKey && pixel.color.toUpperCase() !== highlightColorKey.toUpperCase()) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // 60% 透明度的黑色蒙版，与预览画布一致
+            ctx.fillRect(
+              canvasCol * magnifiedCellSize,
+              canvasRow * magnifiedCellSize,
+              magnifiedCellSize,
+              magnifiedCellSize
+            );
+          }
+
           // 绘制网格线
           ctx.strokeStyle = '#e0e0e0';
           ctx.lineWidth = 1;
@@ -114,7 +127,7 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
         }
       }
     }
-  }, [selectionArea, mappedPixelData, getSelectionDimensions]);
+  }, [selectionArea, mappedPixelData, getSelectionDimensions, highlightColorKey]);
 
   // 处理放大视图点击
   const handleMagnifiedClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {

@@ -1903,14 +1903,14 @@ export default function Home() {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
-                        <span>使用右上角悬浮调色盘进行上色操作</span>
+                        <span>使用右上角菜单操作</span>
                       </div>
                       <span className="hidden sm:inline text-gray-300 dark:text-gray-500">|</span>
                       <div className="flex items-center gap-1 w-full sm:w-auto">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <span>Ctrl/Cmd+滚轮缩放</span>
+                        <span>推荐电脑操作，上色更精准</span>
                       </div>
                     </div>
                   </div>
@@ -2204,6 +2204,7 @@ export default function Home() {
             onClearSelection={() => setMagnifierSelectionArea(null)}
             isFloatingActive={activeFloatingTool === 'magnifier'}
             onActivateFloating={handleActivateMagnifier}
+            highlightColorKey={highlightColorKey}
           />
           
           {/* 放大镜选择覆盖层 */}
