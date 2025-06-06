@@ -87,6 +87,8 @@ import GridTooltip from '../components/GridTooltip';
 import CustomPaletteEditor from '../components/CustomPaletteEditor';
 import FloatingColorPalette from '../components/FloatingColorPalette';
 import FloatingToolbar from '../components/FloatingToolbar';
+import MagnifierTool from '../components/MagnifierTool';
+import MagnifierSelectionOverlay from '../components/MagnifierSelectionOverlay';
 import { loadPaletteSelections, savePaletteSelections, presetToSelections, PaletteSelections } from '../utils/localStorageUtils';
 import { TRANSPARENT_KEY, transparentColorData } from '../utils/pixelEditingUtils';
 
@@ -160,6 +162,70 @@ export default function Home() {
 
   // 新增：悬浮调色盘状态
   const [isFloatingPaletteOpen, setIsFloatingPaletteOpen] = useState<boolean>(true);
+
+  // 新增：放大镜状态
+  const [isMagnifierActive, setIsMagnifierActive] = useState<boolean>(false);
+  const [magnifierSelectionArea, setMagnifierSelectionArea] = useState<{
+    startRow: number;
+    startCol: number;
+    endRow: number;
+    endCol: number;
+  } | null>(null);
+
+  // 放大镜切换处理函数
+  const handleToggleMagnifier = () => {
+    setIsMagnifierActive(!isMagnifierActive);
+  };
+
+  // 放大镜像素编辑处理函数
+  const handleMagnifierPixelEdit = (row: number, col: number, colorData: { key: string; color: string }) => {
+    if (!mappedPixelData) return;
+    
+    // 创建新的像素数据
+    const newMappedPixelData = mappedPixelData.map((rowData, r) =>
+      rowData.map((pixel, c) => {
+        if (r === row && c === col) {
+          return { 
+            key: colorData.key, 
+            color: colorData.color 
+          } as MappedPixel;
+        }
+        return pixel;
+      })
+    );
+    
+    setMappedPixelData(newMappedPixelData);
+    
+    // 更新颜色统计
+    if (colorCounts) {
+      const newColorCounts = { ...colorCounts };
+      
+      // 减少原颜色的计数
+      const oldPixel = mappedPixelData[row][col];
+      if (newColorCounts[oldPixel.key]) {
+        newColorCounts[oldPixel.key].count--;
+        if (newColorCounts[oldPixel.key].count === 0) {
+          delete newColorCounts[oldPixel.key];
+        }
+      }
+      
+      // 增加新颜色的计数
+      if (newColorCounts[colorData.key]) {
+        newColorCounts[colorData.key].count++;
+      } else {
+        newColorCounts[colorData.key] = {
+          count: 1,
+          color: colorData.color
+        };
+      }
+      
+      setColorCounts(newColorCounts);
+      
+      // 更新总计数
+      const newTotal = Object.values(newColorCounts).reduce((sum, item) => sum + item.count, 0);
+      setTotalBeadCount(newTotal);
+    }
+  };
 
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelatedCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -2074,7 +2140,10 @@ export default function Home() {
             step: 'select-source'
           });
           setHighlightColorKey(null);
+          setIsMagnifierActive(false);
         }}
+        onToggleMagnifier={handleToggleMagnifier}
+        isMagnifierActive={isMagnifierActive}
       />
 
       {/* 悬浮调色盘 */}
@@ -2096,6 +2165,33 @@ export default function Home() {
           isOpen={isFloatingPaletteOpen}
           onToggleOpen={() => setIsFloatingPaletteOpen(!isFloatingPaletteOpen)}
         />
+      )}
+
+      {/* 放大镜工具 */}
+      {isManualColoringMode && (
+        <>
+          <MagnifierTool
+            isActive={isMagnifierActive}
+            onToggle={handleToggleMagnifier}
+            mappedPixelData={mappedPixelData}
+            gridDimensions={gridDimensions}
+            selectedColor={selectedColor}
+            selectedColorSystem={selectedColorSystem}
+            onPixelEdit={handleMagnifierPixelEdit}
+            cellSize={gridDimensions ? Math.min(6, Math.max(4, 500 / Math.max(gridDimensions.N, gridDimensions.M))) : 6}
+            selectionArea={magnifierSelectionArea}
+            onClearSelection={() => setMagnifierSelectionArea(null)}
+          />
+          
+          {/* 放大镜选择覆盖层 */}
+          <MagnifierSelectionOverlay
+            isActive={isMagnifierActive && !magnifierSelectionArea}
+            canvasRef={pixelatedCanvasRef}
+            gridDimensions={gridDimensions}
+            cellSize={gridDimensions ? Math.min(6, Math.max(4, 500 / Math.max(gridDimensions.N, gridDimensions.M))) : 6}
+            onSelectionComplete={setMagnifierSelectionArea}
+          />
+        </>
       )}
 
       {/* Apply dark mode styles to the Footer */}
