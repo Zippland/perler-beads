@@ -103,9 +103,11 @@ export async function downloadImage({
     const widthFactor = Math.max(0, preCalcAvailableWidth - 350) / 600;
     const statsFontSize = Math.floor(baseStatsFontSize + (widthFactor * 10));
     
-    // 计算额外边距，确保坐标数字完全显示
+    // 计算额外边距，确保坐标数字完全显示（四边都需要）
     const extraLeftMargin = showCoordinates ? Math.max(20, statsFontSize * 2) : 0; // 左侧额外边距
+    const extraRightMargin = showCoordinates ? Math.max(20, statsFontSize * 2) : 0; // 右侧额外边距
     const extraTopMargin = showCoordinates ? Math.max(15, statsFontSize) : 0; // 顶部额外边距
+    const extraBottomMargin = showCoordinates ? Math.max(15, statsFontSize) : 0; // 底部额外边距
     
     // 计算网格尺寸
     const gridWidth = N * downloadCellSize;
@@ -164,9 +166,9 @@ export async function downloadImage({
       statsHeight = titleHeight + (numRows * statsRowHeight) + footerHeight + (statsPadding * 2) + statsTopMargin;
     }
   
-    // 调整画布大小，包含标题栏、坐标轴、统计区域和小红书标识区域
-    const downloadWidth = gridWidth + axisLabelSize + extraLeftMargin;
-    let downloadHeight = titleBarHeight + gridHeight + axisLabelSize + statsHeight + extraTopMargin + xiaohongshuAreaHeight;
+    // 调整画布大小，包含标题栏、坐标轴、统计区域和小红书标识区域（四边都有坐标）
+    const downloadWidth = gridWidth + (axisLabelSize * 2) + extraLeftMargin + extraRightMargin;
+    let downloadHeight = titleBarHeight + gridHeight + (axisLabelSize * 2) + statsHeight + extraTopMargin + extraBottomMargin + xiaohongshuAreaHeight;
   
     let downloadCanvas = document.createElement('canvas');
     downloadCanvas.width = downloadWidth;
@@ -300,17 +302,22 @@ export async function downloadImage({
       ctx.fillStyle = '#F5F5F5'; // 浅灰色背景
       // 横轴背景 (顶部)
       ctx.fillRect(extraLeftMargin + axisLabelSize, titleBarHeight + extraTopMargin, gridWidth, axisLabelSize);
+      // 横轴背景 (底部)
+      ctx.fillRect(extraLeftMargin + axisLabelSize, titleBarHeight + extraTopMargin + axisLabelSize + gridHeight, gridWidth, axisLabelSize);
       // 纵轴背景 (左侧)
       ctx.fillRect(extraLeftMargin, titleBarHeight + extraTopMargin + axisLabelSize, axisLabelSize, gridHeight);
+      // 纵轴背景 (右侧)
+      ctx.fillRect(extraLeftMargin + axisLabelSize + gridWidth, titleBarHeight + extraTopMargin + axisLabelSize, axisLabelSize, gridHeight);
       
       // 绘制坐标轴数字
       ctx.fillStyle = '#333333'; // 坐标数字颜色
-      // 使用与颜色统计区域相同的字体大小，但不使用粗体
-      const axisFontSize = statsFontSize;
+      // 使用固定的字体大小，不进行缩放
+      const axisFontSize = 14;
       ctx.font = `${axisFontSize}px sans-serif`;
 
       // X轴（顶部）数字
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       for (let i = 0; i < N; i++) {
         if ((i + 1) % gridInterval === 0 || i === 0 || i === N - 1) { // 在间隔处、起始处和结束处标注
           // 将数字放在轴线之上，考虑额外边距
@@ -320,12 +327,37 @@ export async function downloadImage({
         }
       }
       
+      // X轴（底部）数字
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < N; i++) {
+        if ((i + 1) % gridInterval === 0 || i === 0 || i === N - 1) { // 在间隔处、起始处和结束处标注
+          // 将数字放在底部轴线上
+          const numX = extraLeftMargin + axisLabelSize + (i * downloadCellSize) + (downloadCellSize / 2);
+          const numY = titleBarHeight + extraTopMargin + axisLabelSize + gridHeight + (axisLabelSize / 2);
+          ctx.fillText((i + 1).toString(), numX, numY);
+        }
+      }
+      
       // Y轴（左侧）数字
-      ctx.textAlign = 'right';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       for (let j = 0; j < M; j++) {
         if ((j + 1) % gridInterval === 0 || j === 0 || j === M - 1) { // 在间隔处、起始处和结束处标注
-          // 将数字放在轴线之左，留出间距并考虑额外边距
-          const numX = extraLeftMargin + axisLabelSize - 8;
+          // 将数字放在轴线之左
+          const numX = extraLeftMargin + (axisLabelSize / 2);
+          const numY = titleBarHeight + extraTopMargin + axisLabelSize + (j * downloadCellSize) + (downloadCellSize / 2);
+          ctx.fillText((j + 1).toString(), numX, numY);
+        }
+      }
+      
+      // Y轴（右侧）数字
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let j = 0; j < M; j++) {
+        if ((j + 1) % gridInterval === 0 || j === 0 || j === M - 1) { // 在间隔处、起始处和结束处标注
+          // 将数字放在右侧轴线上
+          const numX = extraLeftMargin + axisLabelSize + gridWidth + (axisLabelSize / 2);
           const numY = titleBarHeight + extraTopMargin + axisLabelSize + (j * downloadCellSize) + (downloadCellSize / 2);
           ctx.fillText((j + 1).toString(), numX, numY);
         }
@@ -334,15 +366,25 @@ export async function downloadImage({
       // 绘制坐标轴边框
       ctx.strokeStyle = '#AAAAAA';
       ctx.lineWidth = 1;
-      // 横轴底边
+      // 顶部横轴底边
       ctx.beginPath();
       ctx.moveTo(extraLeftMargin + axisLabelSize, titleBarHeight + extraTopMargin + axisLabelSize);
       ctx.lineTo(extraLeftMargin + axisLabelSize + gridWidth, titleBarHeight + extraTopMargin + axisLabelSize);
       ctx.stroke();
-      // 纵轴右侧边
+      // 底部横轴顶边
+      ctx.beginPath();
+      ctx.moveTo(extraLeftMargin + axisLabelSize, titleBarHeight + extraTopMargin + axisLabelSize + gridHeight);
+      ctx.lineTo(extraLeftMargin + axisLabelSize + gridWidth, titleBarHeight + extraTopMargin + axisLabelSize + gridHeight);
+      ctx.stroke();
+      // 左侧纵轴右边
       ctx.beginPath();
       ctx.moveTo(extraLeftMargin + axisLabelSize, titleBarHeight + extraTopMargin + axisLabelSize);
       ctx.lineTo(extraLeftMargin + axisLabelSize, titleBarHeight + extraTopMargin + axisLabelSize + gridHeight);
+      ctx.stroke();
+      // 右侧纵轴左边
+      ctx.beginPath();
+      ctx.moveTo(extraLeftMargin + axisLabelSize + gridWidth, titleBarHeight + extraTopMargin + axisLabelSize);
+      ctx.lineTo(extraLeftMargin + axisLabelSize + gridWidth, titleBarHeight + extraTopMargin + axisLabelSize + gridHeight);
       ctx.stroke();
     }
     
@@ -458,7 +500,7 @@ export async function downloadImage({
       
       // 增加额外的间距，防止标题文字侵入画布
       const statsTopMargin = 24; // 增加间距，防止文字侵入画布
-      const statsY = titleBarHeight + extraTopMargin + M * downloadCellSize + axisLabelSize + statsPadding + statsTopMargin;
+      const statsY = titleBarHeight + extraTopMargin + M * downloadCellSize + (axisLabelSize * 2) + statsPadding + statsTopMargin;
       
       // 计算统计区域的可用宽度
       const availableStatsWidth = downloadWidth - (statsPadding * 2);
@@ -591,7 +633,7 @@ export async function downloadImage({
     // 重新计算画布高度并调整
     if (includeStats && colorCounts) {
       // 调整画布大小，包含计算后的统计区域和小红书标识区域
-      const newDownloadHeight = titleBarHeight + extraTopMargin + M * downloadCellSize + axisLabelSize + statsHeight + xiaohongshuAreaHeight;
+      const newDownloadHeight = titleBarHeight + extraTopMargin + M * downloadCellSize + (axisLabelSize * 2) + statsHeight + extraBottomMargin + xiaohongshuAreaHeight;
       
       if (downloadHeight !== newDownloadHeight) {
         // 如果高度变化了，需要创建新的画布并复制当前内容
