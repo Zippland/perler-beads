@@ -148,9 +148,6 @@ export default function Home() {
   // 新增：完整色板切换状态
   const [showFullPalette, setShowFullPalette] = useState<boolean>(false);
   
-  // 添加标记来区分是否是CSV导入的图像
-  const [isFromCsvImport, setIsFromCsvImport] = useState<boolean>(false);
-  
   // 新增：颜色替换相关状态
   const [colorReplaceState, setColorReplaceState] = useState<{
     isActive: boolean;
