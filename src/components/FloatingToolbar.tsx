@@ -22,7 +22,7 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   if (!isManualColoringMode) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-40 flex flex-col gap-2">
+    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2">
       {/* 调色盘开关按钮 */}
       <button
         onClick={onTogglePalette}

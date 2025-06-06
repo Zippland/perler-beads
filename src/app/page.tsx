@@ -172,6 +172,9 @@ export default function Home() {
     endCol: number;
   } | null>(null);
 
+  // 新增：活跃工具层级管理
+  const [activeFloatingTool, setActiveFloatingTool] = useState<'palette' | 'magnifier' | null>(null);
+
   // 放大镜切换处理函数
   const handleToggleMagnifier = () => {
     const newActiveState = !isMagnifierActive;
@@ -181,6 +184,15 @@ export default function Home() {
     if (!newActiveState) {
       setMagnifierSelectionArea(null);
     }
+  };
+
+  // 激活工具处理函数
+  const handleActivatePalette = () => {
+    setActiveFloatingTool('palette');
+  };
+
+  const handleActivateMagnifier = () => {
+    setActiveFloatingTool('magnifier');
   };
 
   // 放大镜像素编辑处理函数
@@ -2171,6 +2183,8 @@ export default function Home() {
           onHighlightColor={handleHighlightColor}
           isOpen={isFloatingPaletteOpen}
           onToggleOpen={() => setIsFloatingPaletteOpen(!isFloatingPaletteOpen)}
+          isActive={activeFloatingTool === 'palette'}
+          onActivate={handleActivatePalette}
         />
       )}
 
@@ -2188,6 +2202,8 @@ export default function Home() {
             cellSize={gridDimensions ? Math.min(6, Math.max(4, 500 / Math.max(gridDimensions.N, gridDimensions.M))) : 6}
             selectionArea={magnifierSelectionArea}
             onClearSelection={() => setMagnifierSelectionArea(null)}
+            isFloatingActive={activeFloatingTool === 'magnifier'}
+            onActivateFloating={handleActivateMagnifier}
           />
           
           {/* 放大镜选择覆盖层 */}

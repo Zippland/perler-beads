@@ -13,6 +13,8 @@ interface MagnifierToolProps {
   cellSize: number;
   selectionArea: SelectionArea | null;
   onClearSelection: () => void;
+  isFloatingActive: boolean;
+  onActivateFloating: () => void;
 }
 
 interface SelectionArea {
@@ -30,7 +32,9 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
   selectedColorSystem,
   onPixelEdit,
   selectionArea,
-  onClearSelection
+  onClearSelection,
+  isFloatingActive,
+  onActivateFloating
 }) => {
   // 计算初始位置，确保在屏幕中央
   const getInitialPosition = () => ({
@@ -160,11 +164,12 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
       });
     }
     
+    onActivateFloating(); // 激活放大镜，置于最上层
     setIsDragging(true);
     // 阻止页面滚动
     document.body.style.overflow = 'hidden';
     event.preventDefault();
-  }, []);
+  }, [onActivateFloating]);
 
   // 处理拖拽移动 - 触摸事件
   const handleTitleBarTouchStart = useCallback((event: React.TouchEvent) => {
@@ -186,11 +191,12 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
       });
     }
     
+    onActivateFloating(); // 激活放大镜，置于最上层
     setIsDragging(true);
     // 阻止页面滚动
     document.body.style.overflow = 'hidden';
     event.preventDefault();
-  }, []);
+  }, [onActivateFloating]);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (isDragging) {
@@ -258,7 +264,7 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
     <>
       {/* 选择区域提示 */}
       {!selectionArea && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-[70]">
           <div className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -272,11 +278,14 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
       {selectionArea && (
         <div
           ref={magnifierRef}
-          className="fixed bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 z-50 select-none"
+          className={`fixed bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 select-none ${
+            isFloatingActive ? 'z-[60]' : 'z-[50]'
+          }`}
           style={{
             left: magnifierPosition.x,
             top: magnifierPosition.y
           }}
+          onClick={onActivateFloating}
         >
           {/* 标题栏 */}
           <div 

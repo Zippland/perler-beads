@@ -22,6 +22,8 @@ interface FloatingColorPaletteProps {
   onHighlightColor: (colorHex: string) => void;
   isOpen: boolean;
   onToggleOpen: () => void;
+  isActive: boolean;
+  onActivate: () => void;
 }
 
 const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
@@ -39,7 +41,9 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
   onColorReplace,
   onHighlightColor,
   isOpen,
-  onToggleOpen
+  onToggleOpen,
+  isActive,
+  onActivate
 }) => {
   const [position, setPosition] = useState({ x: 20, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
@@ -50,6 +54,7 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!paletteRef.current) return;
     
+    onActivate(); // 激活调色板，置于最上层
     const rect = paletteRef.current.getBoundingClientRect();
     setIsDragging(true);
     setDragOffset({
@@ -57,12 +62,13 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
       y: e.clientY - rect.top
     });
     e.preventDefault();
-  }, []);
+  }, [onActivate]);
 
   // 处理触摸开始
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!paletteRef.current) return;
     
+    onActivate(); // 激活调色板，置于最上层
     const rect = paletteRef.current.getBoundingClientRect();
     const touch = e.touches[0];
     setIsDragging(true);
@@ -71,7 +77,7 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
       y: touch.clientY - rect.top
     });
     e.preventDefault();
-  }, []);
+  }, [onActivate]);
 
   // 处理移动
   useEffect(() => {
@@ -160,13 +166,16 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
   return (
     <div
       ref={paletteRef}
-      className="fixed bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 z-50 select-none"
+      className={`fixed bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-600 select-none ${
+        isActive ? 'z-[60]' : 'z-[50]'
+      }`}
       style={{
         left: position.x,
         top: position.y,
         width: '280px',
         maxHeight: '400px'
       }}
+      onClick={onActivate}
     >
       {/* 标题栏和控制按钮 */}
       <div
