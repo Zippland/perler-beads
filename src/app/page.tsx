@@ -543,8 +543,34 @@ export default function Home() {
       if (N <= 0 || M <= 0) { console.error("Invalid grid dimensions:", { N, M }); return; }
       console.log(`Grid size: ${N}x${M}`);
 
-      const outputWidth = 500;
+      // 动态调整画布尺寸：当格子数量大于100时，增加画布尺寸以保持每个格子的可见性
+      const baseWidth = 500;
+      const minCellSize = 4; // 每个格子的最小尺寸（像素）
+      const recommendedCellSize = 6; // 推荐的格子尺寸（像素）
+      
+      let outputWidth = baseWidth;
+      
+      // 如果格子数量大于100，计算需要的画布宽度
+      if (N > 100) {
+        const requiredWidthForMinSize = N * minCellSize;
+        const requiredWidthForRecommendedSize = N * recommendedCellSize;
+        
+        // 使用推荐尺寸，但不超过屏幕宽度的90%（最大1200px）
+        const maxWidth = Math.min(1200, window.innerWidth * 0.9);
+        outputWidth = Math.min(maxWidth, Math.max(baseWidth, requiredWidthForRecommendedSize));
+        
+        // 确保不小于最小要求
+        outputWidth = Math.max(outputWidth, requiredWidthForMinSize);
+        
+        console.log(`Large grid detected (${N} columns). Adjusted canvas width from ${baseWidth} to ${outputWidth}px (cell size: ${Math.round(outputWidth / N)}px)`);
+      }
+      
       const outputHeight = Math.round(outputWidth * aspectRatio);
+      
+      // 在控制台提示用户画布尺寸变化
+      if (N > 100) {
+        console.log(`💡 由于格子数量较多 (${N}x${M})，画布已自动放大以保持清晰度。可以使用水平滚动查看完整图像。`);
+      }
       originalCanvas.width = img.width; originalCanvas.height = img.height;
       pixelatedCanvas.width = outputWidth; pixelatedCanvas.height = outputHeight;
       console.log(`Canvas dimensions: Original ${img.width}x${img.height}, Output ${outputWidth}x${outputHeight}`);
@@ -1860,8 +1886,19 @@ export default function Home() {
               {/* Canvas Preview Container */}
               {/* Apply dark mode styles */}
               <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-100 dark:border-gray-700">
-                 {/* Inner container background */}
-                <div className="flex justify-center mb-3 sm:mb-4 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg overflow-hidden"
+                {/* 大画布提示信息 */}
+                {gridDimensions && gridDimensions.N > 100 && (
+                  <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg text-xs text-blue-700 dark:text-blue-300 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>高精度网格 ({gridDimensions.N}×{gridDimensions.M}) - 画布已自动放大，可左右滚动、放大查看精细图像</span>
+                    </div>
+                  </div>
+                )}
+                 {/* Inner container background - 允许水平滚动以适应大画布 */}
+                <div className="flex justify-center mb-3 sm:mb-4 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg overflow-x-auto overflow-y-hidden"
                      style={{ minHeight: '150px' }}>
                   {/* PixelatedPreviewCanvas component needs internal changes for dark mode drawing */}
                   <PixelatedPreviewCanvas
