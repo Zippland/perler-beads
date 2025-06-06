@@ -172,7 +172,7 @@ const DownloadSettingsModal: React.FC<DownloadSettingsModalProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
                 <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
-                  同时导出CSV数据
+                  同时导出源数据
                 </label>
                 <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   导出hex颜色值的CSV文件，可用于重新导入
