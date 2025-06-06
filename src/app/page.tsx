@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, ChangeEvent, DragEvent, useEffect, useMemo, useCallback } from 'react';
 import Script from 'next/script';
-import ColorPalette from '../components/ColorPalette';
+
 // 导入像素化工具和类型
 import {
   PixelationMode,
@@ -79,19 +79,16 @@ const fullBeadPalette: PaletteColor[] = Object.entries(mardToHexMapping)
   })
   .filter((color): color is PaletteColor => color !== null);
 
-// ++ 添加透明键定义 ++
-const TRANSPARENT_KEY = 'ERASE';
-
-// ++ 添加透明色数据 ++
-const transparentColorData: MappedPixel = { key: TRANSPARENT_KEY, color: '#FFFFFF', isExternal: true };
-
 // ++ Add definition for background color keys ++
 
 // 1. 导入新组件
 import PixelatedPreviewCanvas from '../components/PixelatedPreviewCanvas';
 import GridTooltip from '../components/GridTooltip';
 import CustomPaletteEditor from '../components/CustomPaletteEditor';
+import FloatingColorPalette from '../components/FloatingColorPalette';
+import FloatingToolbar from '../components/FloatingToolbar';
 import { loadPaletteSelections, savePaletteSelections, presetToSelections, PaletteSelections } from '../utils/localStorageUtils';
+import { TRANSPARENT_KEY, transparentColorData } from '../utils/pixelEditingUtils';
 
 // 1. 导入新的 DonationModal 组件
 import DonationModal from '../components/DonationModal';
@@ -160,6 +157,9 @@ export default function Home() {
 
   // 新增：组件挂载状态
   const [isMounted, setIsMounted] = useState<boolean>(false);
+
+  // 新增：悬浮调色盘状态
+  const [isFloatingPaletteOpen, setIsFloatingPaletteOpen] = useState<boolean>(true);
 
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelatedCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -1810,78 +1810,28 @@ export default function Home() {
             <div className="w-full md:max-w-2xl">
               <canvas ref={originalCanvasRef} className="hidden"></canvas>
 
-              {/* ++ RENDER Button/Palette ONLY in manual mode above canvas ++ */}
+              {/* ++ 手动编辑模式提示信息 ++ */}
               {isManualColoringMode && mappedPixelData && gridDimensions && (
-                // Apply dark mode styles to manual mode container
-                <div className="w-full mb-4 p-4 bg-blue-50 dark:bg-gray-800 rounded-xl shadow-md border border-blue-100 dark:border-gray-700">
-                  {/* Finish Manual Coloring Button (already has distinct colors, maybe keep as is) */}
-                  <button
-                    onClick={() => {
-                      setIsManualColoringMode(false); // Always exit mode here
-                      setSelectedColor(null);
-                      setTooltipData(null);
-                      setIsEraseMode(false); // 重置擦除模式状态
-                    }}
-                    className={`w-full py-2.5 px-4 text-sm sm:text-base rounded-lg transition-all duration-200 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white shadow-sm hover:shadow-md`} // Keep red for contrast?
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}> <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /> </svg>
-                    完成手动编辑
-                  </button>
-                  {/* Color Palette (only in manual mode) */}
-                  <div className="mt-4">
-                    <div className="flex justify-center mb-3">
-                       {/* Apply dark mode styles to the info box */}
-                      <div className="bg-blue-50 dark:bg-gray-700 border border-blue-100 dark:border-gray-600 rounded-lg p-2 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-xs text-gray-600 dark:text-gray-300 w-full sm:w-auto">
-                        <div className="flex items-center gap-1 w-full sm:w-auto">
-                          {/* Icon color */}
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                          {/* Text color implicitly handled by parent */}
-                          <span>选择颜色/橡皮擦/一键擦除，点击画布格子上色</span>
-                        </div>
-                        {/* Separator color */}
-                        <span className="hidden sm:inline text-gray-300 dark:text-gray-500">|</span>
-                        <div className="flex items-center gap-1 w-full sm:w-auto">
-                          {/* Icon color */}
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          {/* Text color implicitly handled by parent */}
-                          <span>为避免误触，推荐使用电脑</span>
-                        </div>
-                         {/* Separator color */}
-                        <span className="hidden sm:inline text-gray-300 dark:text-gray-500">|</span>
-                        <div className="flex items-center gap-1 w-full sm:w-auto">
-                          {/* Icon color */}
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
-                          {/* Text color implicitly handled by parent */}
-                          <span>Ctrl/Cmd+滚轮缩放</span>
-                        </div>
+                <div className="w-full mb-4 p-3 bg-blue-50 dark:bg-gray-800 rounded-lg shadow-sm border border-blue-100 dark:border-gray-700">
+                  <div className="flex justify-center">
+                    <div className="bg-blue-50 dark:bg-gray-700 border border-blue-100 dark:border-gray-600 rounded-lg p-2 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-xs text-gray-600 dark:text-gray-300 w-full sm:w-auto">
+                      <div className="flex items-center gap-1 w-full sm:w-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        <span>使用右上角悬浮调色盘进行上色操作</span>
+                      </div>
+                      <span className="hidden sm:inline text-gray-300 dark:text-gray-500">|</span>
+                      <div className="flex items-center gap-1 w-full sm:w-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <span>Ctrl/Cmd+滚轮缩放</span>
                       </div>
                     </div>
-                    {/* ColorPalette component will need internal dark mode styles */}
-                    <ColorPalette
-                      colors={[transparentColorData, ...currentGridColors]}
-                      selectedColor={selectedColor}
-                      onColorSelect={handleColorSelect}
-                      transparentKey={TRANSPARENT_KEY}
-                      selectedColorSystem={selectedColorSystem}
-                      isEraseMode={isEraseMode}
-                      onEraseToggle={handleEraseToggle}
-                      onHighlightColor={handleHighlightColor}
-                      fullPaletteColors={fullPaletteColors}
-                      showFullPalette={showFullPalette}
-                      onToggleFullPalette={handleToggleFullPalette}
-                      colorReplaceState={colorReplaceState}
-                      onColorReplaceToggle={handleColorReplaceToggle}
-                      onColorReplace={handleColorReplace}
-                    />
                   </div>
                 </div>
-              )} {/* ++ End of RENDER Button/Palette ++ */}
+              )}
 
               {/* Canvas Preview Container */}
               {/* Apply dark mode styles */}
@@ -2108,6 +2058,45 @@ export default function Home() {
           )}
 
       </main>
+
+      {/* 悬浮工具栏 */}
+      <FloatingToolbar
+        isManualColoringMode={isManualColoringMode}
+        isPaletteOpen={isFloatingPaletteOpen}
+        onTogglePalette={() => setIsFloatingPaletteOpen(!isFloatingPaletteOpen)}
+        onExitManualMode={() => {
+          setIsManualColoringMode(false);
+          setSelectedColor(null);
+          setTooltipData(null);
+          setIsEraseMode(false);
+          setColorReplaceState({
+            isActive: false,
+            step: 'select-source'
+          });
+          setHighlightColorKey(null);
+        }}
+      />
+
+      {/* 悬浮调色盘 */}
+      {isManualColoringMode && (
+        <FloatingColorPalette
+          colors={currentGridColors}
+          selectedColor={selectedColor}
+          onColorSelect={handleColorSelect}
+          selectedColorSystem={selectedColorSystem}
+          isEraseMode={isEraseMode}
+          onEraseToggle={handleEraseToggle}
+          fullPaletteColors={fullPaletteColors}
+          showFullPalette={showFullPalette}
+          onToggleFullPalette={handleToggleFullPalette}
+          colorReplaceState={colorReplaceState}
+          onColorReplaceToggle={handleColorReplaceToggle}
+          onColorReplace={handleColorReplace}
+          onHighlightColor={handleHighlightColor}
+          isOpen={isFloatingPaletteOpen}
+          onToggleOpen={() => setIsFloatingPaletteOpen(!isFloatingPaletteOpen)}
+        />
+      )}
 
       {/* Apply dark mode styles to the Footer */}
       <footer className="w-full md:max-w-4xl mt-10 mb-6 py-6 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800/50 rounded-lg shadow-inner">
