@@ -94,6 +94,7 @@ import { TRANSPARENT_KEY, transparentColorData } from '../utils/pixelEditingUtil
 
 // 1. 导入新的 DonationModal 组件
 import DonationModal from '../components/DonationModal';
+import FocusModePreDownloadModal from '../components/FocusModePreDownloadModal';
 
 export default function Home() {
   const [originalImageSrc, setOriginalImageSrc] = useState<string | null>(null);
@@ -175,6 +176,9 @@ export default function Home() {
 
   // 新增：活跃工具层级管理
   const [activeFloatingTool, setActiveFloatingTool] = useState<'palette' | 'magnifier' | null>(null);
+
+  // 新增：专心拼豆模式进入前下载提醒弹窗
+  const [isFocusModePreDownloadModalOpen, setIsFocusModePreDownloadModalOpen] = useState<boolean>(false);
 
   // 放大镜切换处理函数
   const handleToggleMagnifier = () => {
@@ -372,6 +376,21 @@ export default function Home() {
   }, [customPaletteSelections, excludedColorKeys, remapTrigger]);
 
   // --- Event Handlers ---
+
+  // 专心拼豆模式相关处理函数
+  const handleEnterFocusMode = () => {
+    setIsFocusModePreDownloadModalOpen(true);
+  };
+
+  const handleProceedToFocusMode = () => {
+    // 保存数据到localStorage供专心拼豆模式使用
+    localStorage.setItem('focusMode_pixelData', JSON.stringify(mappedPixelData));
+    localStorage.setItem('focusMode_gridDimensions', JSON.stringify(gridDimensions));
+    localStorage.setItem('focusMode_colorCounts', JSON.stringify(colorCounts));
+    
+    // 跳转到专心拼豆页面
+    window.location.href = '/focus';
+  };
 
   // 添加一个安全的文件输入触发函数
   const triggerFileInput = useCallback(() => {
@@ -2231,8 +2250,8 @@ export default function Home() {
 
         {/* ++ RENDER Enter Manual Mode Button ONLY when NOT in manual mode (before downloads) ++ */}
         {!isManualColoringMode && originalImageSrc && mappedPixelData && gridDimensions && (
-            <div className="w-full md:max-w-2xl mt-4"> {/* Wrapper div */} 
-             {/* Keeping button styles bright for visibility in both modes */}
+            <div className="w-full md:max-w-2xl mt-4 space-y-3"> {/* Wrapper div */} 
+             {/* Manual Edit Mode Button */}
              <button
                 onClick={() => {
                   setIsManualColoringMode(true); // Enter mode
@@ -2242,7 +2261,19 @@ export default function Home() {
                 className={`w-full py-2.5 px-4 text-sm sm:text-base rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg hover:translate-y-[-1px]`}
               >
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"> <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /> </svg>
-                 进入手动编辑模式（含去背景）
+                 进入手动编辑模式
+             </button>
+
+             {/* Focus Mode Button */}
+             <button
+                onClick={handleEnterFocusMode}
+                className={`w-full py-2.5 px-4 text-sm sm:text-base rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-md hover:shadow-lg hover:translate-y-[-1px]`}
+              >
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                 </svg>
+                 进入专心拼豆模式（AplhaTest）
              </button>
             </div>
         )} {/* ++ End of RENDER Enter Manual Mode Button ++ */}
@@ -2380,6 +2411,16 @@ export default function Home() {
         options={downloadOptions}
         onOptionsChange={setDownloadOptions}
         onDownload={handleDownloadRequest}
+      />
+
+      {/* 专心拼豆模式进入前下载提醒弹窗 */}
+      <FocusModePreDownloadModal
+        isOpen={isFocusModePreDownloadModalOpen}
+        onClose={() => setIsFocusModePreDownloadModalOpen(false)}
+        onProceedWithoutDownload={handleProceedToFocusMode}
+        mappedPixelData={mappedPixelData}
+        gridDimensions={gridDimensions}
+        selectedColorSystem={selectedColorSystem}
       />
     </div>
    </>
