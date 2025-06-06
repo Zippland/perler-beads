@@ -45,6 +45,12 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
   isActive,
   onActivate
 }) => {
+  // 计算初始位置，确保在屏幕内显示
+  const getInitialPosition = () => ({
+    x: Math.max(20, Math.min(20, window.innerWidth - 300)),
+    y: Math.max(100, Math.min(100, window.innerHeight - 400))
+  });
+  
   const [position, setPosition] = useState({ x: 20, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -84,8 +90,9 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
     const handleMove = (clientX: number, clientY: number) => {
       if (!isDragging) return;
 
-      const newX = Math.max(0, Math.min(window.innerWidth - 300, clientX - dragOffset.x));
-      const newY = Math.max(0, Math.min(window.innerHeight - 400, clientY - dragOffset.y));
+      // 移除边界限制，允许自由拖动到任何位置
+      const newX = clientX - dragOffset.x;
+      const newY = clientY - dragOffset.y;
 
       setPosition({ x: newX, y: newY });
     };
@@ -130,18 +137,14 @@ const FloatingColorPalette: React.FC<FloatingColorPaletteProps> = ({
     }
   }, [isDragging, dragOffset]);
 
-  // 响应窗口大小变化，确保调色盘不会超出边界
-  useEffect(() => {
-    const handleResize = () => {
-      setPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - 300),
-        y: Math.min(prev.y, window.innerHeight - 400)
-      }));
-    };
+  // 移除窗口大小变化时的边界调整，允许调色盘保持在任何位置
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    // 每次打开调色盘时重置位置到屏幕内
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined') {
+      setPosition(getInitialPosition());
+    }
+  }, [isOpen]);
 
   // 处理颜色点击
   const handleColorClick = (colorData: { key: string; color: string }) => {
