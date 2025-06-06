@@ -434,7 +434,7 @@ export default function Home() {
   const handleConfirmParameters = () => {
     // 处理格子数
     const minGranularity = 10;
-    const maxGranularity = 200;
+    const maxGranularity = 300;
     let newGranularity = parseInt(granularityInput, 10);
 
     if (isNaN(newGranularity) || newGranularity < minGranularity) {
@@ -1680,7 +1680,7 @@ export default function Home() {
                 <div className="flex-1">
                   {/* Label color */}
                   <label htmlFor="granularityInput" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-                    横轴切割数量 (10-200):
+                    横轴切割数量 (10-300):
                   </label>
                   <div className="flex items-center gap-2">
                     {/* Input field styles */}
@@ -1691,7 +1691,7 @@ export default function Home() {
                       onChange={handleGranularityInputChange}
                       className="w-full p-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 h-9 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
                       min="10"
-                      max="200"
+                      max="300"
                     />
                   </div>
                 </div>
