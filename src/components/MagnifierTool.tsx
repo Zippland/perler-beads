@@ -48,6 +48,13 @@ const MagnifierTool: React.FC<MagnifierToolProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   
+  // 每次激活放大镜时重置位置
+  useEffect(() => {
+    if (isActive) {
+      setMagnifierPosition(getInitialPosition());
+    }
+  }, [isActive]);
+  
   const magnifierRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
