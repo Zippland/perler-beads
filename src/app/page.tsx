@@ -415,8 +415,25 @@ export default function Home() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
-      processFile(file);
+      // 检查文件类型是否支持
+      const fileName = file.name.toLowerCase();
+      const fileType = file.type.toLowerCase();
+      
+      // 支持的图片类型
+      const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      // 支持的CSV MIME类型（不同浏览器可能返回不同的MIME类型）
+      const supportedCsvTypes = ['text/csv', 'application/csv', 'text/plain'];
+      
+      const isImageFile = supportedImageTypes.includes(fileType) || fileType.startsWith('image/');
+      const isCsvFile = supportedCsvTypes.includes(fileType) || fileName.endsWith('.csv');
+      
+      if (isImageFile || isCsvFile) {
+        setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
+        processFile(file);
+      } else {
+        alert(`不支持的文件类型: ${file.type || '未知'}。请选择 JPG、PNG 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`);
+        console.warn(`Unsupported file type: ${file.type}, file name: ${file.name}`);
+      }
     }
     // 重置文件输入框的值，这样用户可以重新选择同一个文件
     if (event.target) {
@@ -432,16 +449,24 @@ export default function Home() {
       if (event.dataTransfer.files && event.dataTransfer.files[0]) {
         const file = event.dataTransfer.files[0];
         
-        // 更严格的文件类型检查
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-        const fileType = file.type.toLowerCase();
+        // 使用与handleFileChange相同的文件类型检查逻辑
         const fileName = file.name.toLowerCase();
+        const fileType = file.type.toLowerCase();
         
-        if (allowedTypes.includes(fileType) || file.type.startsWith('image/') || fileName.endsWith('.csv')) {
+        // 支持的图片类型
+        const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        // 支持的CSV MIME类型（不同浏览器可能返回不同的MIME类型）
+        const supportedCsvTypes = ['text/csv', 'application/csv', 'text/plain'];
+        
+        const isImageFile = supportedImageTypes.includes(fileType) || fileType.startsWith('image/');
+        const isCsvFile = supportedCsvTypes.includes(fileType) || fileName.endsWith('.csv');
+        
+        if (isImageFile || isCsvFile) {
           setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
           processFile(file);
         } else {
-          alert(`不支持的文件类型: ${file.type || '未知'}。请拖放 JPG、PNG 格式的图片文件，或 CSV 数据文件。`);
+          alert(`不支持的文件类型: ${file.type || '未知'}。请拖放 JPG、PNG 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`);
+          console.warn(`Unsupported file type: ${file.type}, file name: ${file.name}`);
         }
       }
     } catch (error) {
@@ -1852,7 +1877,7 @@ export default function Home() {
           </div>
         )}
 
-                      <input type="file" accept="image/jpeg, image/png, .csv" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
+                      <input type="file" accept="image/jpeg, image/png, .csv, text/csv, application/csv, text/plain" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
 
         {/* Controls and Output Area */}
         {originalImageSrc && (
