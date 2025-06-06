@@ -46,6 +46,160 @@ function sortColorKeys(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
+// 导出CSV hex数据的函数
+export function exportCsvData({
+  mappedPixelData,
+  gridDimensions,
+  selectedColorSystem
+}: {
+  mappedPixelData: MappedPixel[][] | null;
+  gridDimensions: { N: number; M: number } | null;
+  selectedColorSystem: ColorSystem;
+}): void {
+  if (!mappedPixelData || !gridDimensions) {
+    console.error("导出失败: 映射数据或尺寸无效。");
+    alert("无法导出CSV，数据未生成或无效。");
+    return;
+  }
+
+  const { N, M } = gridDimensions;
+  
+  // 生成CSV内容，每行代表图纸的一行
+  const csvLines: string[] = [];
+  
+  for (let row = 0; row < M; row++) {
+    const rowData: string[] = [];
+    for (let col = 0; col < N; col++) {
+      const cellData = mappedPixelData[row][col];
+      if (cellData && !cellData.isExternal) {
+        // 内部单元格，记录hex颜色值
+        rowData.push(cellData.color);
+      } else {
+        // 外部单元格或空白，使用特殊标记
+        rowData.push('TRANSPARENT');
+      }
+    }
+    csvLines.push(rowData.join(','));
+  }
+
+  // 创建CSV内容
+  const csvContent = csvLines.join('\n');
+  
+  // 创建并下载CSV文件
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `bead-pattern-${N}x${M}-${selectedColorSystem}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  // 释放URL对象
+  URL.revokeObjectURL(url);
+  
+  console.log("CSV数据导出完成");
+}
+
+// 导入CSV hex数据的函数
+export function importCsvData(file: File): Promise<{
+  mappedPixelData: MappedPixel[][];
+  gridDimensions: { N: number; M: number };
+}> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        if (!text) {
+          reject(new Error('无法读取文件内容'));
+          return;
+        }
+        
+        // 解析CSV内容
+        const lines = text.trim().split('\n');
+        const M = lines.length; // 行数
+        
+        if (M === 0) {
+          reject(new Error('CSV文件为空'));
+          return;
+        }
+        
+        // 解析第一行获取列数
+        const firstRowData = lines[0].split(',');
+        const N = firstRowData.length; // 列数
+        
+        if (N === 0) {
+          reject(new Error('CSV文件格式无效'));
+          return;
+        }
+        
+        // 创建映射数据
+        const mappedPixelData: MappedPixel[][] = [];
+        
+        for (let row = 0; row < M; row++) {
+          const rowData = lines[row].split(',');
+          const mappedRow: MappedPixel[] = [];
+          
+          // 确保每行都有正确的列数
+          if (rowData.length !== N) {
+            reject(new Error(`第${row + 1}行的列数不匹配，期望${N}列，实际${rowData.length}列`));
+            return;
+          }
+          
+          for (let col = 0; col < N; col++) {
+            const cellValue = rowData[col].trim();
+            
+            if (cellValue === 'TRANSPARENT' || cellValue === '') {
+              // 外部/透明单元格
+              mappedRow.push({
+                key: 'TRANSPARENT',
+                color: '#FFFFFF',
+                isExternal: true
+              });
+            } else {
+              // 验证hex颜色格式
+              const hexPattern = /^#[0-9A-Fa-f]{6}$/;
+              if (!hexPattern.test(cellValue)) {
+                reject(new Error(`第${row + 1}行第${col + 1}列的颜色值无效：${cellValue}`));
+                return;
+              }
+              
+              // 内部单元格
+              mappedRow.push({
+                key: cellValue.toUpperCase(),
+                color: cellValue.toUpperCase(),
+                isExternal: false
+              });
+            }
+          }
+          
+          mappedPixelData.push(mappedRow);
+        }
+        
+        // 返回解析结果
+        resolve({
+          mappedPixelData,
+          gridDimensions: { N, M }
+        });
+        
+      } catch (error) {
+        reject(new Error(`解析CSV文件失败：${error}`));
+      }
+    };
+    
+    reader.onerror = () => {
+      reject(new Error('读取文件失败'));
+    };
+    
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
 // 下载图片的主函数
 export async function downloadImage({
   mappedPixelData,
@@ -666,6 +820,15 @@ export async function downloadImage({
       link.click();
       document.body.removeChild(link);
       console.log("Grid image download initiated.");
+      
+      // 如果启用了CSV导出，同时导出CSV文件
+      if (options.exportCsv) {
+        exportCsvData({
+          mappedPixelData,
+          gridDimensions,
+          selectedColorSystem
+        });
+      }
     } catch (e) {
       console.error("下载图纸失败:", e);
       alert("无法生成图纸下载链接。");

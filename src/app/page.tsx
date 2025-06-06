@@ -18,7 +18,7 @@ import {
 // 导入新的类型和组件
 import { GridDownloadOptions } from '../types/downloadTypes';
 import DownloadSettingsModal, { gridLineColorOptions } from '../components/DownloadSettingsModal';
-import { downloadImage } from '../utils/imageDownloader';
+import { downloadImage, importCsvData } from '../utils/imageDownloader';
 
 import { 
   colorSystemOptions, 
@@ -138,7 +138,8 @@ export default function Home() {
     gridInterval: 10,
     showCoordinates: true,
     gridLineColor: gridLineColorOptions[0].value,
-    includeStats: true // 默认包含统计信息
+    includeStats: true, // 默认包含统计信息
+    exportCsv: false // 默认不导出CSV
   });
 
   // 新增：高亮相关状态
@@ -146,6 +147,9 @@ export default function Home() {
 
   // 新增：完整色板切换状态
   const [showFullPalette, setShowFullPalette] = useState<boolean>(false);
+  
+  // 添加标记来区分是否是CSV导入的图像
+  const [isFromCsvImport, setIsFromCsvImport] = useState<boolean>(false);
   
   // 新增：颜色替换相关状态
   const [colorReplaceState, setColorReplaceState] = useState<{
@@ -434,12 +438,13 @@ export default function Home() {
         // 更严格的文件类型检查
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
         const fileType = file.type.toLowerCase();
+        const fileName = file.name.toLowerCase();
         
-        if (allowedTypes.includes(fileType) || file.type.startsWith('image/')) {
+        if (allowedTypes.includes(fileType) || file.type.startsWith('image/') || fileName.endsWith('.csv')) {
           setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
           processFile(file);
         } else {
-          alert(`不支持的文件类型: ${file.type || '未知'}。请拖放 JPG 或 PNG 格式的图片文件。`);
+          alert(`不支持的文件类型: ${file.type || '未知'}。请拖放 JPG、PNG 格式的图片文件，或 CSV 数据文件。`);
         }
       }
     } catch (error) {
@@ -453,32 +458,131 @@ export default function Home() {
     event.stopPropagation();
   };
 
-  const processFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setOriginalImageSrc(result);
-      setMappedPixelData(null);
-      setGridDimensions(null);
-      setColorCounts(null);
-      setTotalBeadCount(0);
-      setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
-      // ++ 重置横轴格子数量为默认值 ++
-      const defaultGranularity = 100;
-      setGranularity(defaultGranularity);
-      setGranularityInput(defaultGranularity.toString());
-      setRemapTrigger(prev => prev + 1); // Trigger full remap for new image
-    };
-    reader.onerror = () => {
-        console.error("文件读取失败");
-        alert("无法读取文件。");
-        setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
+  // 根据mappedPixelData生成合成的originalImageSrc
+  const generateSyntheticImageFromPixelData = (pixelData: MappedPixel[][], dimensions: { N: number; M: number }): string => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) {
+      console.error('无法创建canvas上下文');
+      return '';
     }
-    reader.readAsDataURL(file);
-    // ++ Reset manual coloring mode when a new file is processed ++
-    setIsManualColoringMode(false);
-    setSelectedColor(null);
-    setIsEraseMode(false);
+    
+    // 设置画布尺寸，每个像素用8x8像素来表示以确保清晰度
+    const pixelSize = 8;
+    canvas.width = dimensions.N * pixelSize;
+    canvas.height = dimensions.M * pixelSize;
+    
+    // 绘制每个像素
+    pixelData.forEach((row, rowIndex) => {
+      row.forEach((cell, colIndex) => {
+        if (cell) {
+          // 使用颜色，外部单元格用白色
+          const color = cell.isExternal ? '#FFFFFF' : cell.color;
+          ctx.fillStyle = color;
+          ctx.fillRect(
+            colIndex * pixelSize, 
+            rowIndex * pixelSize, 
+            pixelSize, 
+            pixelSize
+          );
+        }
+      });
+    });
+    
+    // 转换为dataURL
+    return canvas.toDataURL('image/png');
+  };
+
+  const processFile = (file: File) => {
+    // 检查文件类型
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    if (fileExtension === 'csv') {
+      // 处理CSV文件
+      console.log('正在导入CSV文件...');
+      importCsvData(file)
+        .then(({ mappedPixelData, gridDimensions }) => {
+          console.log(`成功导入CSV文件: ${gridDimensions.N}x${gridDimensions.M}`);
+          
+          // 设置导入的数据
+          setMappedPixelData(mappedPixelData);
+          setGridDimensions(gridDimensions);
+          setOriginalImageSrc(null); // CSV导入时没有原始图片
+          
+          // 计算颜色统计
+          const colorCountsMap: { [key: string]: { count: number; color: string } } = {};
+          let totalCount = 0;
+          
+          mappedPixelData.forEach(row => {
+            row.forEach(cell => {
+              if (cell && !cell.isExternal) {
+                const colorKey = cell.color.toUpperCase();
+                if (colorCountsMap[colorKey]) {
+                  colorCountsMap[colorKey].count++;
+                } else {
+                  colorCountsMap[colorKey] = {
+                    count: 1,
+                    color: cell.color
+                  };
+                }
+                totalCount++;
+              }
+            });
+          });
+          
+          setColorCounts(colorCountsMap);
+          setTotalBeadCount(totalCount);
+          setInitialGridColorKeys(new Set(Object.keys(colorCountsMap)));
+          
+          // 根据mappedPixelData生成合成的originalImageSrc
+          const syntheticImageSrc = generateSyntheticImageFromPixelData(mappedPixelData, gridDimensions);
+          
+          setOriginalImageSrc(syntheticImageSrc);
+          
+          // 重置状态
+          setIsManualColoringMode(false);
+          setSelectedColor(null);
+          setIsEraseMode(false);
+          
+          // 设置格子数量为导入的尺寸，避免重新映射时尺寸被修改
+          setGranularity(gridDimensions.N);
+          setGranularityInput(gridDimensions.N.toString());
+          
+          alert(`成功导入CSV文件！图纸尺寸：${gridDimensions.N}x${gridDimensions.M}，共使用${Object.keys(colorCountsMap).length}种颜色。`);
+        })
+        .catch(error => {
+          console.error('CSV导入失败:', error);
+          alert(`CSV导入失败：${error.message}`);
+        });
+    } else {
+      // 处理图片文件
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setOriginalImageSrc(result);
+        setMappedPixelData(null);
+        setGridDimensions(null);
+        setColorCounts(null);
+        setTotalBeadCount(0);
+        setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
+        // ++ 重置横轴格子数量为默认值 ++
+        const defaultGranularity = 100;
+        setGranularity(defaultGranularity);
+        setGranularityInput(defaultGranularity.toString());
+        setRemapTrigger(prev => prev + 1); // Trigger full remap for new image
+      };
+      reader.onerror = () => {
+          console.error("文件读取失败");
+          alert("无法读取文件。");
+          setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
+      }
+      reader.readAsDataURL(file);
+      // ++ Reset manual coloring mode when a new file is processed ++
+      setIsManualColoringMode(false);
+      setSelectedColor(null);
+      setIsEraseMode(false);
+    }
   };
 
   // 处理一键擦除模式切换
@@ -1734,7 +1838,7 @@ export default function Home() {
           {/* Text color */}
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">拖放图片到此处，或<span className="font-medium text-blue-600 dark:text-blue-400">点击选择文件</span></p>
           {/* Text color */}
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">支持 JPG, PNG 格式</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">支持 JPG, PNG 图片格式，或 CSV 数据文件</p>
         </div>
 
         {/* Apply dark mode styles to the Tip Box */}
@@ -1751,7 +1855,7 @@ export default function Home() {
           </div>
         )}
 
-        <input type="file" accept="image/jpeg, image/png" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
+                      <input type="file" accept="image/jpeg, image/png, .csv" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
 
         {/* Controls and Output Area */}
         {originalImageSrc && (

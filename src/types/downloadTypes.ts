@@ -5,4 +5,5 @@ export type GridDownloadOptions = {
   showCoordinates: boolean;
   gridLineColor: string;
   includeStats: boolean;
+  exportCsv: boolean; // 新增：是否同时导出CSV hex数据
 }; 
