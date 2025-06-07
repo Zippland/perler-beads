@@ -148,9 +148,9 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
     const thumbnailDataURL = generateThumbnail();
     const isUsingPixelArt = userPhoto === thumbnailDataURL;
 
-    // 设置画布尺寸 (9:16比例，适合手机分享)
+    // 设置画布尺寸 (3:4比例，适合分享)
     const cardWidth = 720;
-    const cardHeight = 1280;
+    const cardHeight = 960;
     canvas.width = cardWidth;
     canvas.height = cardHeight;
 
@@ -174,7 +174,7 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           const imageMaxSize = Math.min(cardWidth * 0.9, cardHeight * 0.75);
           const imageSize = imageMaxSize;
           const imageX = (cardWidth - imageSize) / 2;
-          const imageY = (cardHeight - imageSize) / 2 - 20; // 稍微往上偏移
+          const imageY = (cardHeight - imageSize) / 2 - 80; // 往上偏移更多
 
           // 绘制主图片的装饰背景和阴影
           ctx.save();
@@ -211,25 +211,16 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.fillText('🎉 作品完成 🎉', cardWidth / 2, 80);
           ctx.shadowBlur = 0;
 
-          // 底部信息区域：透明背景卡片
-          const infoY = imageY + imageSize + 50;
-          const infoHeight = 120;
-          const infoX = 40;
-          const infoWidth = cardWidth - 80;
+          // 底部信息区域：直接显示文字
+          const infoY = imageY + imageSize + 40;
           
-          // 半透明背景
-          ctx.fillStyle = 'rgba(255,255,255,0.15)';
-          ctx.fillRect(infoX, infoY, infoWidth, infoHeight);
-          
-          // 信息文字
+          // 信息文字 - 一行显示
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(`⏱️ ${formatTime(totalElapsedTime)}`, cardWidth / 2, infoY + 35);
-          
-          ctx.font = '18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-          ctx.fillStyle = 'rgba(255,255,255,0.9)';
-          ctx.fillText(`🔗 完成 ${totalBeads} 颗豆子`, cardWidth / 2, infoY + 65);
+          ctx.shadowColor = 'rgba(0,0,0,0.5)';
+          ctx.shadowBlur = 8;
+          ctx.fillText(`⏱️ ${formatTime(totalElapsedTime)} | 🔗 完成 ${totalBeads} 颗豆子`, cardWidth / 2, infoY + 40);
 
           // 底部品牌信息
           ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -257,7 +248,7 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           const photoMaxSize = Math.min(cardWidth * 0.85, cardHeight * 0.7);
           const photoSize = photoMaxSize;
           const photoX = (cardWidth - photoSize) / 2;
-          const photoY = (cardHeight - photoSize) / 2 - 30;
+          const photoY = (cardHeight - photoSize) / 2 - 80;
 
           // 绘制照片装饰背景和阴影
           ctx.save();
@@ -278,39 +269,18 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           // 绘制矩形照片
           ctx.drawImage(userImg, photoX, photoY, photoSize, photoSize);
 
-          // 顶部完成标识
+
+
+          // 底部信息区域：直接显示文字
+          const infoCardY = photoY + photoSize + 30;
+
+          // 信息文字 - 一行显示
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 32px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.shadowColor = 'rgba(0,0,0,0.3)';
-          ctx.shadowBlur = 8;
-          ctx.fillText('🎉 拼豆达成', cardWidth / 2, 100);
-          ctx.shadowBlur = 0;
-
-          // 底部信息卡片
-          const infoCardY = photoY + photoSize + 40;
-          const cardHeight2 = 140;
-          const cardX = 60;
-          const cardWidth2 = cardWidth - 120;
-          
-          // 信息卡片背景
-          ctx.fillStyle = 'rgba(255,255,255,0.95)';
-          ctx.shadowColor = 'rgba(0,0,0,0.1)';
-          ctx.shadowBlur = 15;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 8;
-          ctx.fillRect(cardX, infoCardY, cardWidth2, cardHeight2);
-          ctx.shadowBlur = 0;
-
-          // 信息文字
-          ctx.fillStyle = '#333333';
           ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(`⏱️ 总用时 ${formatTime(totalElapsedTime)}`, cardWidth / 2, infoCardY + 40);
-          
-          ctx.font = '20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-          ctx.fillStyle = '#666666';
-          ctx.fillText(`🔗 共完成 ${totalBeads} 颗豆子`, cardWidth / 2, infoCardY + 75);
+          ctx.shadowColor = 'rgba(0,0,0,0.5)';
+          ctx.shadowBlur = 8;
+          ctx.fillText(`⏱️ 总用时 ${formatTime(totalElapsedTime)} | 🔗 共完成 ${totalBeads} 颗豆子`, cardWidth / 2, infoCardY + 35);
 
           // 添加小的拼豆原图作为装饰
           if (thumbnailDataURL) {
@@ -318,28 +288,34 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
             thumbnailImg.onload = () => {
               const thumbSize = 60;
               const thumbX = cardWidth / 2 - thumbSize / 2;
-              const thumbY = infoCardY + 90;
+              const thumbY = infoCardY + 80;
               
-                             // 绘制小缩略图背景
-               ctx.fillStyle = '#ffffff';
-               ctx.fillRect(thumbX - 3, thumbY - 3, thumbSize + 6, thumbSize + 6);
+              // 绘制小缩略图背景
+              ctx.fillStyle = '#ffffff';
+              ctx.shadowColor = 'rgba(0,0,0,0.3)';
+              ctx.shadowBlur = 8;
+              ctx.fillRect(thumbX - 3, thumbY - 3, thumbSize + 6, thumbSize + 6);
+              ctx.shadowBlur = 0;
                
-               // 绘制小缩略图
-               ctx.drawImage(thumbnailImg, thumbX, thumbY, thumbSize, thumbSize);
+              // 绘制小缩略图
+              ctx.drawImage(thumbnailImg, thumbX, thumbY, thumbSize, thumbSize);
                
-               // 缩略图边框
-               ctx.strokeStyle = '#ffffff';
-               ctx.lineWidth = 3;
-               ctx.strokeRect(thumbX - 3, thumbY - 3, thumbSize + 6, thumbSize + 6);
+              // 缩略图边框
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(thumbX - 3, thumbY - 3, thumbSize + 6, thumbSize + 6);
 
               // 底部品牌信息
               ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
               ctx.fillStyle = 'rgba(255,255,255,0.8)';
               ctx.textAlign = 'center';
-              ctx.fillText('七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 50);
+              ctx.shadowColor = 'rgba(0,0,0,0.5)';
+              ctx.shadowBlur = 4;
+              ctx.fillText('七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 40);
               ctx.font = '12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
               ctx.fillStyle = 'rgba(255,255,255,0.6)';
-              ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 25);
+              ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 20);
+              ctx.shadowBlur = 0;
 
               resolve(canvas.toDataURL('image/jpeg', 0.95));
             };
@@ -349,10 +325,13 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
             ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.8)';
             ctx.textAlign = 'center';
-            ctx.fillText('七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 50);
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4;
+            ctx.fillText('七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 40);
             ctx.font = '12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.6)';
-            ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 25);
+            ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 20);
+            ctx.shadowBlur = 0;
 
             resolve(canvas.toDataURL('image/jpeg', 0.95));
           }
