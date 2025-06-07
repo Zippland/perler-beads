@@ -173,89 +173,75 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
       const userImg = new Image();
       userImg.onload = () => {
         if (isUsingPixelArt) {
-          // ===== 拼豆原图模式：原图占主导 =====
+          // ===== 拼豆原图模式：极简像素风格 =====
           
-          // 深色渐变背景，更有质感
-          const gradient = ctx.createLinearGradient(0, 0, 0, cardHeight);
-          gradient.addColorStop(0, '#1a1a2e');
-          gradient.addColorStop(0.3, '#16213e');
-          gradient.addColorStop(0.7, '#0f3460');
-          gradient.addColorStop(1, '#533483');
-          ctx.fillStyle = gradient;
+          // 统一的深色背景
+          ctx.fillStyle = '#0A0A0A';
           ctx.fillRect(0, 0, cardWidth, cardHeight);
 
           // 计算拼豆图尺寸，保持原始宽高比
           const imgAspectRatio = userImg.naturalWidth / userImg.naturalHeight;
-          const maxWidth = cardWidth * 0.9;
-          const maxHeight = cardHeight * 0.6;
+          const maxWidth = cardWidth * 0.8;
+          const maxHeight = cardHeight * 0.65;
           
           let imageWidth, imageHeight;
           if (maxWidth / maxHeight > imgAspectRatio) {
-            // 以高度为准
             imageHeight = maxHeight;
             imageWidth = imageHeight * imgAspectRatio;
           } else {
-            // 以宽度为准
             imageWidth = maxWidth;
             imageHeight = imageWidth / imgAspectRatio;
           }
           
           const imageX = (cardWidth - imageWidth) / 2;
-          const imageY = (cardHeight - imageHeight) / 2 - 80; // 往上偏移更多
+          const imageY = (cardHeight - imageHeight) / 2 - 60;
 
-          // 绘制主图片的装饰背景和阴影
-          ctx.save();
-          // 外层光晕效果
-          const glowGradient = ctx.createRadialGradient(
-            imageX + imageWidth/2, imageY + imageHeight/2, Math.min(imageWidth, imageHeight)/2,
-            imageX + imageWidth/2, imageY + imageHeight/2, Math.min(imageWidth, imageHeight)/2 + 30
-          );
-          glowGradient.addColorStop(0, 'rgba(255,255,255,0.1)');
-          glowGradient.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.fillStyle = glowGradient;
-          ctx.fillRect(imageX - 30, imageY - 30, imageWidth + 60, imageHeight + 60);
+          // 像素风格边框
+          const pixelBorder = 4;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(imageX - pixelBorder, imageY - pixelBorder, 
+                      imageWidth + pixelBorder * 2, imageHeight + pixelBorder * 2);
           
-          // 白色边框背景
-          ctx.fillStyle = '#ffffff';
-          ctx.shadowColor = 'rgba(0,0,0,0.3)';
-          ctx.shadowBlur = 25;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 15;
-          const borderWidth = 12;
-          ctx.fillRect(imageX - borderWidth, imageY - borderWidth, 
-                      imageWidth + borderWidth * 2, imageHeight + borderWidth * 2);
-          ctx.restore();
+          // 内层暗色边框，增加层次
+          ctx.fillStyle = '#333333';
+          ctx.fillRect(imageX - pixelBorder + 1, imageY - pixelBorder + 1, 
+                      imageWidth + (pixelBorder - 1) * 2, imageHeight + (pixelBorder - 1) * 2);
 
           // 绘制拼豆原图
           ctx.drawImage(userImg, imageX, imageY, imageWidth, imageHeight);
 
-          // 顶部区域：简洁的完成标识
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.shadowColor = 'rgba(0,0,0,0.3)';
-          ctx.shadowBlur = 8;
-          ctx.fillText('🎉 作品完成 🎉', cardWidth / 2, 80);
-          ctx.shadowBlur = 0;
-
-          // 底部信息区域：直接显示文字
-          const infoY = imageY + imageHeight + 40;
+          // 底部信息区域
+          const infoY = imageY + imageHeight + 60;
           
-          // 信息文字 - 一行显示
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.shadowColor = 'rgba(0,0,0,0.5)';
-          ctx.shadowBlur = 8;
-          ctx.fillText(`⏱️ ${formatTime(totalElapsedTime)} | 🔗 完成 ${totalBeads} 颗豆子`, cardWidth / 2, infoY + 40);
+          // 创建信息背景条
+          const infoBarHeight = 50;
+          const infoBarWidth = cardWidth * 0.85;
+          const infoBarX = (cardWidth - infoBarWidth) / 2;
+          
+          ctx.fillStyle = '#1A1A1A';
+          ctx.fillRect(infoBarX, infoY - 15, infoBarWidth, infoBarHeight);
+          
+          // 像素风格装饰线
+          ctx.fillStyle = '#00FF88';
+          ctx.fillRect(infoBarX, infoY - 15, infoBarWidth, 2);
+          ctx.fillRect(infoBarX, infoY + infoBarHeight - 17, infoBarWidth, 2);
 
-          // 底部品牌信息
-          ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-          ctx.fillStyle = 'rgba(255,255,255,0.7)';
-          ctx.fillText('七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 50);
-          ctx.font = '12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-          ctx.fillStyle = 'rgba(255,255,255,0.5)';
-          ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 25);
+          // 信息文字 - 现代等宽字体风格
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = '16px "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace';
+          ctx.textAlign = 'center';
+          
+          const timeText = `TIME: ${formatTime(totalElapsedTime)}`;
+          const beadText = `BEADS: ${totalBeads}`;
+          ctx.fillText(`${timeText} | ${beadText}`, cardWidth / 2, infoY + 15);
+
+          // 底部品牌信息 - 极简风格
+          ctx.font = '12px "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace';
+          ctx.fillStyle = '#666666';
+          ctx.fillText('PERLER BEADS GENERATOR', cardWidth / 2, cardHeight - 30);
+          ctx.font = '10px "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace';
+          ctx.fillStyle = '#444444';
+          ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 15);
 
           resolve(canvas.toDataURL('image/jpeg', 0.95));
           
