@@ -148,15 +148,9 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
     const thumbnailDataURL = generateThumbnail();
     const isUsingPixelArt = userPhoto === thumbnailDataURL;
 
-    // 动态计算画布尺寸
+    // 设置画布尺寸 (9:16比例，适合手机分享)
     const cardWidth = 720;
-    const topPadding = 120; // 顶部标题区域
-    const imageSize = Math.min(cardWidth * 0.9, 600); // 主图片尺寸，最大600px
-    const bottomInfoHeight = 120; // 底部信息区域
-    const bottomBrandHeight = 80; // 底部品牌区域
-    const padding = 40; // 各区域间的间距
-    
-    const cardHeight = topPadding + imageSize + bottomInfoHeight + bottomBrandHeight + padding * 2;
+    const cardHeight = 1280;
     canvas.width = cardWidth;
     canvas.height = cardHeight;
 
