@@ -387,6 +387,7 @@ export default function Home() {
     localStorage.setItem('focusMode_pixelData', JSON.stringify(mappedPixelData));
     localStorage.setItem('focusMode_gridDimensions', JSON.stringify(gridDimensions));
     localStorage.setItem('focusMode_colorCounts', JSON.stringify(colorCounts));
+    localStorage.setItem('focusMode_selectedColorSystem', selectedColorSystem);
     
     // 跳转到专心拼豆页面
     window.location.href = '/focus';

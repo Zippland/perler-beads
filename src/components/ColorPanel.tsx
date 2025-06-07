@@ -110,8 +110,8 @@ const ColorPanel: React.FC<ColorPanelProps> = ({
                       style={{ backgroundColor: colorInfo.color }}
                     />
                     <div className="text-left">
-                      <div className="text-sm font-medium text-gray-800">
-                        {colorInfo.color.toUpperCase()}
+                      <div className="text-sm font-medium text-gray-800 font-mono">
+                        {colorInfo.name}
                       </div>
                       <div className="text-xs text-gray-500">
                         {colorInfo.completed}/{colorInfo.total} ({progressPercentage}%)

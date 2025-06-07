@@ -16,6 +16,7 @@ import ProgressBar from '../../components/ProgressBar';
 import ToolBar from '../../components/ToolBar';
 import ColorPanel from '../../components/ColorPanel';
 import SettingsPanel from '../../components/SettingsPanel';
+import { getColorKeyByHex, ColorSystem } from '../../utils/colorSystemUtils';
 
 interface FocusModeState {
   // 当前状态
@@ -39,12 +40,18 @@ interface FocusModeState {
   showColorPanel: boolean;
   showSettingsPanel: boolean;
   isPaused: boolean;
+  
+  // 计时器状态
+  startTime: number; // 开始时间戳
+  totalElapsedTime: number; // 总计用时（秒）
+  lastResumeTime: number; // 最后一次恢复的时间戳
 }
 
 export default function FocusMode() {
   // 从localStorage或URL参数获取像素数据
   const [mappedPixelData, setMappedPixelData] = useState<MappedPixel[][] | null>(null);
   const [gridDimensions, setGridDimensions] = useState<{ N: number; M: number } | null>(null);
+  const [selectedColorSystem, setSelectedColorSystem] = useState<ColorSystem>('MARD');
 
   // 专心模式状态
   const [focusState, setFocusState] = useState<FocusModeState>({
@@ -59,7 +66,10 @@ export default function FocusMode() {
     guidanceMode: 'nearest',
     showColorPanel: false,
     showSettingsPanel: false,
-    isPaused: false
+    isPaused: false,
+    startTime: Date.now(),
+    totalElapsedTime: 0,
+    lastResumeTime: Date.now()
   });
 
   // 可用颜色列表
@@ -70,11 +80,37 @@ export default function FocusMode() {
     completed: number;
   }>>([]);
 
+  // 计时器管理
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (!focusState.isPaused) {
+      interval = setInterval(() => {
+        setFocusState(prev => {
+          const now = Date.now();
+          const elapsed = Math.floor((now - prev.lastResumeTime) / 1000);
+          return {
+            ...prev,
+            totalElapsedTime: prev.totalElapsedTime + elapsed,
+            lastResumeTime: now
+          };
+        });
+      }, 1000); // 每秒更新一次
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [focusState.isPaused]);
+
   // 从localStorage加载数据
   useEffect(() => {
     const savedPixelData = localStorage.getItem('focusMode_pixelData');
     const savedGridDimensions = localStorage.getItem('focusMode_gridDimensions');
     const savedColorCounts = localStorage.getItem('focusMode_colorCounts');
+    const savedColorSystem = localStorage.getItem('focusMode_selectedColorSystem');
 
     if (savedPixelData && savedGridDimensions && savedColorCounts) {
       try {
@@ -84,13 +120,20 @@ export default function FocusMode() {
 
         setMappedPixelData(pixelData);
         setGridDimensions(dimensions);
+        
+        // 设置色号系统
+        if (savedColorSystem) {
+          setSelectedColorSystem(savedColorSystem as ColorSystem);
+        }
 
         // 计算颜色进度
-                const colors = Object.entries(colorCounts).map(([colorKey, colorData]) => {
+        const colors = Object.entries(colorCounts).map(([colorKey, colorData]) => {
           const data = colorData as { color: string; count: number };
+          // 通过hex值获取对应色号系统的色号
+          const displayKey = getColorKeyByHex(data.color, savedColorSystem as ColorSystem || 'MARD');
           return {
             color: data.color,
-            name: colorKey, // 使用色号作为名称
+            name: displayKey, // 使用色号系统的色号作为名称
             total: data.count,
             completed: 0
           };
@@ -298,6 +341,42 @@ export default function FocusMode() {
     }));
   }, [focusState.recommendedCell, gridDimensions]);
 
+  // 格式化时间显示
+  const formatTime = useCallback((seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+  }, []);
+
+  // 处理暂停/继续
+  const handlePauseToggle = useCallback(() => {
+    setFocusState(prev => {
+      const now = Date.now();
+      if (prev.isPaused) {
+        // 从暂停恢复：重新设置恢复时间
+        return {
+          ...prev,
+          isPaused: false,
+          lastResumeTime: now
+        };
+      } else {
+        // 暂停：累加当前的时间段到总时间
+        const elapsed = Math.floor((now - prev.lastResumeTime) / 1000);
+        return {
+          ...prev,
+          isPaused: true,
+          totalElapsedTime: prev.totalElapsedTime + elapsed
+        };
+      }
+    });
+  }, []);
+
   if (!mappedPixelData || !gridDimensions) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -373,9 +452,9 @@ export default function FocusMode() {
       <ToolBar 
         onColorSelect={() => setFocusState(prev => ({ ...prev, showColorPanel: true }))}
         onLocate={handleLocateRecommended}
-        onUndo={() => {/* TODO: 实现撤销功能 */}}
-        onPause={() => setFocusState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
+        onPause={handlePauseToggle}
         isPaused={focusState.isPaused}
+        elapsedTime={formatTime(focusState.totalElapsedTime)}
       />
 
       {/* 颜色选择面板 */}

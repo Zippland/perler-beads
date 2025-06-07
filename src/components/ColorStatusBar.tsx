@@ -33,6 +33,9 @@ const ColorStatusBar: React.FC<ColorStatusBarProps> = ({
           className="w-8 h-8 rounded-full border-2 border-gray-300"
           style={{ backgroundColor: currentColor }}
         />
+        <div className="text-sm font-mono font-bold text-gray-700 px-2">
+          {colorInfo.name}
+        </div>
         <div className="flex flex-col">
           <div className="text-sm font-medium text-gray-800">
             {colorInfo.completed}/{colorInfo.total}

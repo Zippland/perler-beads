@@ -85,8 +85,8 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         ctx.fillStyle = fillColor;
         ctx.fillRect(x, y, cellSize, cellSize);
 
-        // 如果是已完成的格子，添加勾选标记
-        if (completedCells.has(cellKey)) {
+        // 如果是已完成的格子且是当前颜色，添加勾选标记
+        if (completedCells.has(cellKey) && pixel.color === currentColor) {
           ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
           ctx.fillRect(x, y, cellSize, cellSize);
           

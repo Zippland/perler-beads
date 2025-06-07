@@ -3,17 +3,17 @@ import React from 'react';
 interface ToolBarProps {
   onColorSelect: () => void;
   onLocate: () => void;
-  onUndo: () => void;
   onPause: () => void;
   isPaused: boolean;
+  elapsedTime: string;
 }
 
 const ToolBar: React.FC<ToolBarProps> = ({
   onColorSelect,
   onLocate,
-  onUndo,
   onPause,
-  isPaused
+  isPaused,
+  elapsedTime
 }) => {
   return (
     <div className="h-15 bg-white border-t border-gray-200 px-4 py-2 flex items-center justify-around">
@@ -40,24 +40,13 @@ const ToolBar: React.FC<ToolBarProps> = ({
         <span className="text-xs">定位</span>
       </button>
 
-      {/* 撤销 */}
-      <button
-        onClick={onUndo}
-        className="flex flex-col items-center space-y-1 text-gray-600 hover:text-orange-600 transition-colors"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-        </svg>
-        <span className="text-xs">撤销</span>
-      </button>
-
-      {/* 暂停/继续 */}
+      {/* 计时器/暂停 */}
       <button
         onClick={onPause}
         className={`flex flex-col items-center space-y-1 transition-colors ${
           isPaused 
             ? 'text-green-600 hover:text-green-700' 
-            : 'text-gray-600 hover:text-red-600'
+            : 'text-red-600 hover:text-red-700'
         }`}
       >
         {isPaused ? (
@@ -69,7 +58,7 @@ const ToolBar: React.FC<ToolBarProps> = ({
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
         )}
-        <span className="text-xs">{isPaused ? '继续' : '暂停'}</span>
+        <span className="text-xs font-mono">{elapsedTime}</span>
       </button>
     </div>
   );
