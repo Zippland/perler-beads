@@ -170,23 +170,40 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, cardWidth, cardHeight);
 
-          // 计算拼豆图尺寸（占据80%的高度，居中显示）
-          const imageMaxSize = Math.min(cardWidth * 0.9, cardHeight * 0.75);
-          const imageSize = imageMaxSize;
-          const imageX = (cardWidth - imageSize) / 2;
-          const imageY = (cardHeight - imageSize) / 2 - 80; // 往上偏移更多
+          // 计算拼豆图尺寸，保持原始比例
+          const originalWidth = gridDimensions.N;
+          const originalHeight = gridDimensions.M;
+          const aspectRatio = originalWidth / originalHeight;
+          
+          // 限制最大尺寸
+          const maxWidth = cardWidth * 0.9;
+          const maxHeight = cardHeight * 0.6;
+          
+          let imageWidth, imageHeight;
+          if (aspectRatio > 1) {
+            // 宽图：固定宽度
+            imageWidth = Math.min(maxWidth, maxHeight * aspectRatio);
+            imageHeight = imageWidth / aspectRatio;
+          } else {
+            // 高图：固定高度
+            imageHeight = Math.min(maxHeight, maxWidth / aspectRatio);
+            imageWidth = imageHeight * aspectRatio;
+          }
+          
+          const imageX = (cardWidth - imageWidth) / 2;
+          const imageY = (cardHeight - imageHeight) / 2 - 80; // 往上偏移更多
 
           // 绘制主图片的装饰背景和阴影
           ctx.save();
           // 外层光晕效果
           const glowGradient = ctx.createRadialGradient(
-            imageX + imageSize/2, imageY + imageSize/2, imageSize/2,
-            imageX + imageSize/2, imageY + imageSize/2, imageSize/2 + 30
+            imageX + imageWidth/2, imageY + imageHeight/2, Math.min(imageWidth, imageHeight)/2,
+            imageX + imageWidth/2, imageY + imageHeight/2, Math.min(imageWidth, imageHeight)/2 + 30
           );
           glowGradient.addColorStop(0, 'rgba(255,255,255,0.1)');
           glowGradient.addColorStop(1, 'rgba(255,255,255,0)');
           ctx.fillStyle = glowGradient;
-          ctx.fillRect(imageX - 30, imageY - 30, imageSize + 60, imageSize + 60);
+          ctx.fillRect(imageX - 30, imageY - 30, imageWidth + 60, imageHeight + 60);
           
           // 白色边框背景
           ctx.fillStyle = '#ffffff';
@@ -196,11 +213,11 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.shadowOffsetY = 15;
           const borderWidth = 12;
           ctx.fillRect(imageX - borderWidth, imageY - borderWidth, 
-                      imageSize + borderWidth * 2, imageSize + borderWidth * 2);
+                      imageWidth + borderWidth * 2, imageHeight + borderWidth * 2);
           ctx.restore();
 
           // 绘制拼豆原图
-          ctx.drawImage(userImg, imageX, imageY, imageSize, imageSize);
+          ctx.drawImage(userImg, imageX, imageY, imageWidth, imageHeight);
 
           // 顶部区域：简洁的完成标识
           ctx.fillStyle = '#ffffff';
@@ -212,7 +229,7 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.shadowBlur = 0;
 
           // 底部信息区域：直接显示文字
-          const infoY = imageY + imageSize + 40;
+          const infoY = imageY + imageHeight + 40;
           
           // 信息文字 - 一行显示
           ctx.fillStyle = '#ffffff';
@@ -244,18 +261,41 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, cardWidth, cardHeight);
 
-          // 计算照片尺寸（占据大部分空间）
-          const photoMaxSize = Math.min(cardWidth * 0.85, cardHeight * 0.7);
-          const photoSize = photoMaxSize;
-          const photoX = (cardWidth - photoSize) / 2;
-          const photoY = (cardHeight - photoSize) / 2 - 80;
+          // 计算照片尺寸，保持原始比例
+          const photoMaxWidth = cardWidth * 0.85;
+          const photoMaxHeight = cardHeight * 0.6;
+          
+          // 先创建临时图像来获取尺寸
+          const tempImg = new Image();
+          tempImg.src = userPhoto;
+          
+          let photoWidth, photoHeight;
+          if (tempImg.width > 0 && tempImg.height > 0) {
+            const photoAspectRatio = tempImg.width / tempImg.height;
+            
+            if (photoAspectRatio > 1) {
+              // 宽图：固定宽度
+              photoWidth = Math.min(photoMaxWidth, photoMaxHeight * photoAspectRatio);
+              photoHeight = photoWidth / photoAspectRatio;
+            } else {
+              // 高图：固定高度
+              photoHeight = Math.min(photoMaxHeight, photoMaxWidth / photoAspectRatio);
+              photoWidth = photoHeight * photoAspectRatio;
+            }
+          } else {
+            // 如果无法获取尺寸，使用默认正方形
+            photoWidth = photoHeight = Math.min(photoMaxWidth, photoMaxHeight);
+          }
+          
+          const photoX = (cardWidth - photoWidth) / 2;
+          const photoY = (cardHeight - photoHeight) / 2 - 80;
 
           // 绘制照片装饰背景和阴影
           ctx.save();
           // 外层装饰边框
           ctx.strokeStyle = 'rgba(255,255,255,0.8)';
           ctx.lineWidth = 8;
-          ctx.strokeRect(photoX - 15, photoY - 15, photoSize + 30, photoSize + 30);
+          ctx.strokeRect(photoX - 15, photoY - 15, photoWidth + 30, photoHeight + 30);
           
           // 内层白色边框背景
           ctx.fillStyle = '#ffffff';
@@ -263,16 +303,16 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.shadowBlur = 20;
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 10;
-          ctx.fillRect(photoX - 12, photoY - 12, photoSize + 24, photoSize + 24);
+          ctx.fillRect(photoX - 12, photoY - 12, photoWidth + 24, photoHeight + 24);
           ctx.restore();
 
-          // 绘制矩形照片
-          ctx.drawImage(userImg, photoX, photoY, photoSize, photoSize);
+          // 绘制照片
+          ctx.drawImage(userImg, photoX, photoY, photoWidth, photoHeight);
 
 
 
           // 底部信息区域：直接显示文字
-          const infoCardY = photoY + photoSize + 30;
+          const infoCardY = photoY + photoHeight + 30;
 
           // 信息文字 - 一行显示
           ctx.fillStyle = '#ffffff';
