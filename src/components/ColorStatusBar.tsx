@@ -24,7 +24,7 @@ const ColorStatusBar: React.FC<ColorStatusBarProps> = ({
     );
   }
 
-  const estimatedTime = Math.ceil((colorInfo.total - colorInfo.completed) * 0.5); // 假设每个格子0.5分钟
+  const estimatedTime = Math.ceil((colorInfo.total - colorInfo.completed) * 0.1); // 假设每个格子0.5分钟
 
   return (
     <div className="h-12 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
