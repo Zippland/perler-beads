@@ -64,12 +64,26 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    const thumbnailSize = 200;
-    canvas.width = thumbnailSize;
-    canvas.height = thumbnailSize;
+    // 根据实际比例计算缩略图尺寸，保持宽高比
+    const aspectRatio = gridDimensions.N / gridDimensions.M;
+    const maxThumbnailSize = 200;
+    
+    let thumbnailWidth, thumbnailHeight;
+    if (aspectRatio > 1) {
+      // 宽图
+      thumbnailWidth = maxThumbnailSize;
+      thumbnailHeight = maxThumbnailSize / aspectRatio;
+    } else {
+      // 高图或方图
+      thumbnailHeight = maxThumbnailSize;
+      thumbnailWidth = maxThumbnailSize * aspectRatio;
+    }
 
-    const cellWidth = thumbnailSize / gridDimensions.N;
-    const cellHeight = thumbnailSize / gridDimensions.M;
+    canvas.width = thumbnailWidth;
+    canvas.height = thumbnailHeight;
+
+    const cellWidth = thumbnailWidth / gridDimensions.N;
+    const cellHeight = thumbnailHeight / gridDimensions.M;
 
     // 绘制缩略图
     for (let row = 0; row < gridDimensions.M; row++) {
@@ -170,24 +184,20 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, cardWidth, cardHeight);
 
-          // 计算拼豆图尺寸，保持原始比例
-          const originalWidth = gridDimensions.N;
-          const originalHeight = gridDimensions.M;
-          const aspectRatio = originalWidth / originalHeight;
-          
-          // 限制最大尺寸
+          // 计算拼豆图尺寸，保持原始宽高比
+          const imgAspectRatio = userImg.naturalWidth / userImg.naturalHeight;
           const maxWidth = cardWidth * 0.9;
           const maxHeight = cardHeight * 0.6;
           
           let imageWidth, imageHeight;
-          if (aspectRatio > 1) {
-            // 宽图：固定宽度
-            imageWidth = Math.min(maxWidth, maxHeight * aspectRatio);
-            imageHeight = imageWidth / aspectRatio;
+          if (maxWidth / maxHeight > imgAspectRatio) {
+            // 以高度为准
+            imageHeight = maxHeight;
+            imageWidth = imageHeight * imgAspectRatio;
           } else {
-            // 高图：固定高度
-            imageHeight = Math.min(maxHeight, maxWidth / aspectRatio);
-            imageWidth = imageHeight * aspectRatio;
+            // 以宽度为准
+            imageWidth = maxWidth;
+            imageHeight = imageWidth / imgAspectRatio;
           }
           
           const imageX = (cardWidth - imageWidth) / 2;
@@ -261,30 +271,20 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, cardWidth, cardHeight);
 
-          // 计算照片尺寸，保持原始比例
-          const photoMaxWidth = cardWidth * 0.85;
-          const photoMaxHeight = cardHeight * 0.6;
-          
-          // 先创建临时图像来获取尺寸
-          const tempImg = new Image();
-          tempImg.src = userPhoto;
+          // 计算照片尺寸，保持原始宽高比
+          const photoAspectRatio = userImg.naturalWidth / userImg.naturalHeight;
+          const maxPhotoWidth = cardWidth * 0.85;
+          const maxPhotoHeight = cardHeight * 0.6;
           
           let photoWidth, photoHeight;
-          if (tempImg.width > 0 && tempImg.height > 0) {
-            const photoAspectRatio = tempImg.width / tempImg.height;
-            
-            if (photoAspectRatio > 1) {
-              // 宽图：固定宽度
-              photoWidth = Math.min(photoMaxWidth, photoMaxHeight * photoAspectRatio);
-              photoHeight = photoWidth / photoAspectRatio;
-            } else {
-              // 高图：固定高度
-              photoHeight = Math.min(photoMaxHeight, photoMaxWidth / photoAspectRatio);
-              photoWidth = photoHeight * photoAspectRatio;
-            }
+          if (maxPhotoWidth / maxPhotoHeight > photoAspectRatio) {
+            // 以高度为准
+            photoHeight = maxPhotoHeight;
+            photoWidth = photoHeight * photoAspectRatio;
           } else {
-            // 如果无法获取尺寸，使用默认正方形
-            photoWidth = photoHeight = Math.min(photoMaxWidth, photoMaxHeight);
+            // 以宽度为准
+            photoWidth = maxPhotoWidth;
+            photoHeight = photoWidth / photoAspectRatio;
           }
           
           const photoX = (cardWidth - photoWidth) / 2;
@@ -306,7 +306,7 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           ctx.fillRect(photoX - 12, photoY - 12, photoWidth + 24, photoHeight + 24);
           ctx.restore();
 
-          // 绘制照片
+          // 绘制照片（保持宽高比）
           ctx.drawImage(userImg, photoX, photoY, photoWidth, photoHeight);
 
 
@@ -326,24 +326,38 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
           if (thumbnailDataURL) {
             const thumbnailImg = new Image();
             thumbnailImg.onload = () => {
-              const thumbSize = 60;
-              const thumbX = cardWidth / 2 - thumbSize / 2;
+              // 计算小缩略图尺寸，保持比例
+              const maxThumbSize = 60;
+              const thumbAspectRatio = thumbnailImg.naturalWidth / thumbnailImg.naturalHeight;
+              
+              let thumbWidth, thumbHeight;
+              if (thumbAspectRatio > 1) {
+                // 宽图
+                thumbWidth = maxThumbSize;
+                thumbHeight = maxThumbSize / thumbAspectRatio;
+              } else {
+                // 高图或方图
+                thumbHeight = maxThumbSize;
+                thumbWidth = maxThumbSize * thumbAspectRatio;
+              }
+              
+              const thumbX = cardWidth / 2 - thumbWidth / 2;
               const thumbY = infoCardY + 80;
               
               // 绘制小缩略图背景
               ctx.fillStyle = '#ffffff';
               ctx.shadowColor = 'rgba(0,0,0,0.3)';
               ctx.shadowBlur = 8;
-              ctx.fillRect(thumbX - 3, thumbY - 3, thumbSize + 6, thumbSize + 6);
+              ctx.fillRect(thumbX - 3, thumbY - 3, thumbWidth + 6, thumbHeight + 6);
               ctx.shadowBlur = 0;
                
-              // 绘制小缩略图
-              ctx.drawImage(thumbnailImg, thumbX, thumbY, thumbSize, thumbSize);
+              // 绘制小缩略图（保持宽高比）
+              ctx.drawImage(thumbnailImg, thumbX, thumbY, thumbWidth, thumbHeight);
                
               // 缩略图边框
               ctx.strokeStyle = '#ffffff';
               ctx.lineWidth = 3;
-              ctx.strokeRect(thumbX - 3, thumbY - 3, thumbSize + 6, thumbSize + 6);
+              ctx.strokeRect(thumbX - 3, thumbY - 3, thumbWidth + 6, thumbHeight + 6);
 
               // 底部品牌信息
               ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
