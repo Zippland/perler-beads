@@ -148,158 +148,219 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
     const thumbnailDataURL = generateThumbnail();
     const isUsingPixelArt = userPhoto === thumbnailDataURL;
 
-    // 设置画布尺寸 (比例适合分享)
-    const cardWidth = 800;
-    const cardHeight = 1000;
+    // 动态计算画布尺寸
+    const cardWidth = 720;
+    const topPadding = 120; // 顶部标题区域
+    const imageSize = Math.min(cardWidth * 0.9, 600); // 主图片尺寸，最大600px
+    const bottomInfoHeight = 120; // 底部信息区域
+    const bottomBrandHeight = 80; // 底部品牌区域
+    const padding = 40; // 各区域间的间距
+    
+    const cardHeight = topPadding + imageSize + bottomInfoHeight + bottomBrandHeight + padding * 2;
     canvas.width = cardWidth;
     canvas.height = cardHeight;
-
-    // 渐变背景
-    const gradient = ctx.createLinearGradient(0, 0, 0, cardHeight);
-    gradient.addColorStop(0, '#667eea');
-    gradient.addColorStop(1, '#764ba2');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, cardWidth, cardHeight);
 
     return new Promise<string>((resolve) => {
       // 加载用户照片/拼豆图
       const userImg = new Image();
       userImg.onload = () => {
         if (isUsingPixelArt) {
-          // 使用拼豆原图的布局 - 重新设计让图片占主要空间
-          const padding = 40;
-          const topSpace = 80;
-          const bottomSpace = 120;
+          // ===== 拼豆原图模式：原图占主导 =====
           
-          // 计算拼豆图尺寸（占据大部分空间）
-          const availableHeight = cardHeight - topSpace - bottomSpace;
-          const availableWidth = cardWidth - padding * 2;
-          const imageSize = Math.min(availableWidth, availableHeight);
-          
-          const imageX = (cardWidth - imageSize) / 2;
-          const imageY = topSpace;
-          
-          // 标题（放在顶部，比较小）
-          ctx.fillStyle = '#fff';
-          ctx.font = 'bold 24px Arial, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('🎉 作品完成！🎉', cardWidth / 2, 40);
+          // 深色渐变背景，更有质感
+          const gradient = ctx.createLinearGradient(0, 0, 0, cardHeight);
+          gradient.addColorStop(0, '#1a1a2e');
+          gradient.addColorStop(0.3, '#16213e');
+          gradient.addColorStop(0.7, '#0f3460');
+          gradient.addColorStop(1, '#533483');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, cardWidth, cardHeight);
 
-          // 绘制拼豆图（大图）
-          ctx.fillStyle = '#fff';
+          // 计算拼豆图尺寸（占据80%的高度，居中显示）
+          const imageMaxSize = Math.min(cardWidth * 0.9, cardHeight * 0.75);
+          const imageSize = imageMaxSize;
+          const imageX = (cardWidth - imageSize) / 2;
+          const imageY = (cardHeight - imageSize) / 2 - 20; // 稍微往上偏移
+
+          // 绘制主图片的装饰背景和阴影
+          ctx.save();
+          // 外层光晕效果
+          const glowGradient = ctx.createRadialGradient(
+            imageX + imageSize/2, imageY + imageSize/2, imageSize/2,
+            imageX + imageSize/2, imageY + imageSize/2, imageSize/2 + 30
+          );
+          glowGradient.addColorStop(0, 'rgba(255,255,255,0.1)');
+          glowGradient.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = glowGradient;
+          ctx.fillRect(imageX - 30, imageY - 30, imageSize + 60, imageSize + 60);
+          
+          // 白色边框背景
+          ctx.fillStyle = '#ffffff';
           ctx.shadowColor = 'rgba(0,0,0,0.3)';
+          ctx.shadowBlur = 25;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 15;
+          const borderWidth = 12;
+          ctx.fillRect(imageX - borderWidth, imageY - borderWidth, 
+                      imageSize + borderWidth * 2, imageSize + borderWidth * 2);
+          ctx.restore();
+
+          // 绘制拼豆原图
+          ctx.drawImage(userImg, imageX, imageY, imageSize, imageSize);
+
+          // 顶部区域：简洁的完成标识
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.shadowColor = 'rgba(0,0,0,0.3)';
+          ctx.shadowBlur = 8;
+          ctx.fillText('🎉 作品完成 🎉', cardWidth / 2, 80);
+          ctx.shadowBlur = 0;
+
+          // 底部信息区域：透明背景卡片
+          const infoY = imageY + imageSize + 50;
+          const infoHeight = 120;
+          const infoX = 40;
+          const infoWidth = cardWidth - 80;
+          
+          // 半透明背景
+          ctx.fillStyle = 'rgba(255,255,255,0.15)';
+          ctx.fillRect(infoX, infoY, infoWidth, infoHeight);
+          
+          // 信息文字
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`⏱️ ${formatTime(totalElapsedTime)}`, cardWidth / 2, infoY + 35);
+          
+          ctx.font = '18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.9)';
+          ctx.fillText(`🔗 完成 ${totalBeads} 颗豆子`, cardWidth / 2, infoY + 65);
+
+          // 底部品牌信息
+          ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.fillText('七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 50);
+          ctx.font = '12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 25);
+
+          resolve(canvas.toDataURL('image/jpeg', 0.95));
+          
+        } else {
+          // ===== 用户照片模式：照片占主导 =====
+          
+          // 温暖渐变背景
+          const gradient = ctx.createLinearGradient(0, 0, 0, cardHeight);
+          gradient.addColorStop(0, '#ff9a9e');
+          gradient.addColorStop(0.3, '#fecfef');
+          gradient.addColorStop(0.7, '#fecfef');
+          gradient.addColorStop(1, '#ff9a9e');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, cardWidth, cardHeight);
+
+          // 计算照片尺寸（占据大部分空间）
+          const photoMaxSize = Math.min(cardWidth * 0.85, cardHeight * 0.7);
+          const photoSize = photoMaxSize;
+          const photoX = (cardWidth - photoSize) / 2;
+          const photoY = (cardHeight - photoSize) / 2 - 30;
+
+          // 绘制照片装饰背景和阴影
+          ctx.save();
+          // 外层装饰边框
+          ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+          ctx.lineWidth = 8;
+          ctx.strokeRect(photoX - 15, photoY - 15, photoSize + 30, photoSize + 30);
+          
+          // 内层白色边框背景
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = 'rgba(0,0,0,0.2)';
+          ctx.shadowBlur = 20;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 10;
+          ctx.fillRect(photoX - 12, photoY - 12, photoSize + 24, photoSize + 24);
+          ctx.restore();
+
+          // 绘制矩形照片
+          ctx.drawImage(userImg, photoX, photoY, photoSize, photoSize);
+
+          // 顶部完成标识
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 32px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.shadowColor = 'rgba(0,0,0,0.3)';
+          ctx.shadowBlur = 8;
+          ctx.fillText('🎉 拼豆达成', cardWidth / 2, 100);
+          ctx.shadowBlur = 0;
+
+          // 底部信息卡片
+          const infoCardY = photoY + photoSize + 40;
+          const cardHeight2 = 140;
+          const cardX = 60;
+          const cardWidth2 = cardWidth - 120;
+          
+          // 信息卡片背景
+          ctx.fillStyle = 'rgba(255,255,255,0.95)';
+          ctx.shadowColor = 'rgba(0,0,0,0.1)';
           ctx.shadowBlur = 15;
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 8;
-          ctx.fillRect(imageX - 8, imageY - 8, imageSize + 16, imageSize + 16);
+          ctx.fillRect(cardX, infoCardY, cardWidth2, cardHeight2);
           ctx.shadowBlur = 0;
-          ctx.drawImage(userImg, imageX, imageY, imageSize, imageSize);
 
-          // 时长和豆子数信息（紧贴图片下方）
-          ctx.fillStyle = '#fff';
-          ctx.font = 'bold 18px Arial, sans-serif';
-          ctx.fillText(`⏱️ ${formatTime(totalElapsedTime)}`, cardWidth / 2, imageY + imageSize + 30);
-          ctx.font = '16px Arial, sans-serif';
-          ctx.fillText(`🔗 ${totalBeads}颗豆子`, cardWidth / 2, imageY + imageSize + 55);
-
-          // 网站信息（底部，更小）
-          ctx.font = '14px Arial, sans-serif';
-          ctx.fillText('来自 七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 60);
-          ctx.font = '12px Arial, sans-serif';
-          ctx.fillStyle = 'rgba(255,255,255,0.8)';
-          ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 35);
-
-          // 装饰元素（更小，分布在四角）
-          const cornerEmojis = ['🎨', '🌟', '🎊', '✨'];
-          ctx.font = '20px Arial, sans-serif';
-          ctx.fillStyle = '#fff';
-          
-          // 四个角落的装饰
-          const cornerPositions = [
-            { x: 60, y: 120 },  // 左上
-            { x: cardWidth - 60, y: 120 },  // 右上
-            { x: 60, y: imageY + imageSize - 40 },  // 左下
-            { x: cardWidth - 60, y: imageY + imageSize - 40 }  // 右下
-          ];
-          
-          cornerEmojis.forEach((emoji, index) => {
-            if (cornerPositions[index]) {
-              ctx.fillText(emoji, cornerPositions[index].x, cornerPositions[index].y);
-            }
-          });
-
-          resolve(canvas.toDataURL('image/jpeg', 0.9));
-        } else {
-          // 原来的用户照片布局
-          const photoSize = 200;
-          const photoX = (cardWidth - photoSize) / 2;
-          const photoY = 60;
-          
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(photoX + photoSize/2, photoY + photoSize/2, photoSize/2, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(userImg, photoX, photoY, photoSize, photoSize);
-          ctx.restore();
-
-          // 绘制圆形边框
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.arc(photoX + photoSize/2, photoY + photoSize/2, photoSize/2, 0, Math.PI * 2);
-          ctx.stroke();
-
-          // 标题
-          ctx.fillStyle = '#fff';
-          ctx.font = 'bold 32px Arial, sans-serif';
+          // 信息文字
+          ctx.fillStyle = '#333333';
+          ctx.font = 'bold 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('🎉 作品完成！', cardWidth / 2, photoY + photoSize + 60);
+          ctx.fillText(`⏱️ 总用时 ${formatTime(totalElapsedTime)}`, cardWidth / 2, infoCardY + 40);
+          
+          ctx.font = '20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.fillStyle = '#666666';
+          ctx.fillText(`🔗 共完成 ${totalBeads} 颗豆子`, cardWidth / 2, infoCardY + 75);
 
-          // 时长和豆子数
-          ctx.font = '22px Arial, sans-serif';
-          ctx.fillText(`总用时：${formatTime(totalElapsedTime)}`, cardWidth / 2, photoY + photoSize + 90);
-          ctx.font = '18px Arial, sans-serif';
-          ctx.fillText(`共拼了 ${totalBeads} 颗豆子`, cardWidth / 2, photoY + photoSize + 115);
-
-          // 原图缩略图
+          // 添加小的拼豆原图作为装饰
           if (thumbnailDataURL) {
             const thumbnailImg = new Image();
             thumbnailImg.onload = () => {
-              const thumbSize = 180;
-              const thumbX = (cardWidth - thumbSize) / 2;
-              const thumbY = photoY + photoSize + 155;
+              const thumbSize = 60;
+              const thumbX = cardWidth / 2 - thumbSize / 2;
+              const thumbY = infoCardY + 90;
               
-              // 绘制缩略图背景
-              ctx.fillStyle = '#fff';
-              ctx.fillRect(thumbX - 10, thumbY - 10, thumbSize + 20, thumbSize + 20);
-              ctx.drawImage(thumbnailImg, thumbX, thumbY, thumbSize, thumbSize);
+                             // 绘制小缩略图背景
+               ctx.fillStyle = '#ffffff';
+               ctx.fillRect(thumbX - 3, thumbY - 3, thumbSize + 6, thumbSize + 6);
+               
+               // 绘制小缩略图
+               ctx.drawImage(thumbnailImg, thumbX, thumbY, thumbSize, thumbSize);
+               
+               // 缩略图边框
+               ctx.strokeStyle = '#ffffff';
+               ctx.lineWidth = 3;
+               ctx.strokeRect(thumbX - 3, thumbY - 3, thumbSize + 6, thumbSize + 6);
 
-              // 缩略图标题
-              ctx.fillStyle = '#fff';
-              ctx.font = '18px Arial, sans-serif';
-              ctx.fillText('作品图案', cardWidth / 2, thumbY + thumbSize + 40);
+              // 底部品牌信息
+              ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+              ctx.fillStyle = 'rgba(255,255,255,0.8)';
+              ctx.textAlign = 'center';
+              ctx.fillText('七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 50);
+              ctx.font = '12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+              ctx.fillStyle = 'rgba(255,255,255,0.6)';
+              ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 25);
 
-              // 网站信息
-              ctx.font = '16px Arial, sans-serif';
-              ctx.fillText('来自 七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 80);
-              ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 50);
-
-              // 装饰元素
-              const decorEmojis = ['🎨', '🌟', '🎊', '💫'];
-              ctx.font = '24px Arial, sans-serif';
-              decorEmojis.forEach((emoji, index) => {
-                const angle = (index * Math.PI * 2) / decorEmojis.length;
-                const radius = 120;
-                const x = cardWidth / 2 + Math.cos(angle) * radius;
-                const y = photoY + photoSize / 2 + Math.sin(angle) * radius;
-                ctx.fillText(emoji, x, y);
-              });
-
-              resolve(canvas.toDataURL('image/jpeg', 0.9));
+              resolve(canvas.toDataURL('image/jpeg', 0.95));
             };
             thumbnailImg.src = thumbnailDataURL;
           } else {
-            resolve(canvas.toDataURL('image/jpeg', 0.9));
+            // 底部品牌信息
+            ctx.font = '14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.textAlign = 'center';
+            ctx.fillText('七卡瓦拼豆底稿生成器', cardWidth / 2, cardHeight - 50);
+            ctx.font = '12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillText('perlerbeads.zippland.com', cardWidth / 2, cardHeight - 25);
+
+            resolve(canvas.toDataURL('image/jpeg', 0.95));
           }
         }
       };
@@ -326,7 +387,7 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
         <div className="p-6">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              🎉 作品完成！
+              🎉 作品完成 🎉
             </h2>
             <div className="text-gray-600 space-y-1">
               <p>总用时：{formatTime(totalElapsedTime)}</p>
