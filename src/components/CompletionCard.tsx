@@ -305,7 +305,7 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
       };
       userImg.src = userPhoto;
     });
-  }, [userPhoto, totalElapsedTime, generateThumbnail]);
+  }, [userPhoto, totalElapsedTime, generateThumbnail, totalBeads]);
 
   // 下载打卡图
   const downloadCard = async () => {
@@ -393,6 +393,7 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
             </div>
           ) : (
             <div className="text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={userPhoto}
                 alt="用户照片"

@@ -26,12 +26,12 @@ const CelebrationAnimation: React.FC<CelebrationAnimationProps> = ({
   const [particles, setParticles] = useState<Particle[]>([]);
   const [confetti, setConfetti] = useState<Particle[]>([]);
 
-  // emoji和彩带选项
-  const celebrationEmojis = ['🎉', '🎊', '✨', '🌟', '💫', '🎈', '🎁', '🏆'];
-  const confettiColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'];
-
   useEffect(() => {
     if (!isVisible) return;
+
+    // emoji和彩带选项
+    const celebrationEmojis = ['🎉', '🎊', '✨', '🌟', '💫', '🎈', '🎁', '🏆'];
+    const confettiColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'];
 
     // 创建emoji粒子
     const newParticles: Particle[] = [];

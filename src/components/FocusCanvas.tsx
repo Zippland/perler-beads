@@ -73,7 +73,6 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
 
         // 确定格子颜色
         let fillColor = pixel.color;
-        let isGrayedOut = false;
 
         // 如果不是当前颜色，显示为灰度
         if (pixel.color !== currentColor) {
@@ -84,7 +83,6 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
           const b = parseInt(hex.substr(4, 2), 16);
           const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
           fillColor = `rgb(${gray}, ${gray}, ${gray})`;
-          isGrayedOut = true;
         }
 
         // 绘制格子背景
@@ -159,7 +157,7 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
   }, [mappedPixelData, gridDimensions, cellSize, currentColor, completedCells, recommendedCell, recommendedRegion, gridSectionInterval, showSectionLines, sectionLineColor]);
 
   // 处理触摸/鼠标事件
-  const getEventPosition = (event: React.MouseEvent | React.TouchEvent) => {
+  const getEventPosition = useCallback((event: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
@@ -179,9 +177,9 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
       x: (clientX - rect.left) / canvasScale,
       y: (clientY - rect.top) / canvasScale
     };
-  };
+  }, [canvasScale]);
 
-  const getGridPosition = (x: number, y: number) => {
+  const getGridPosition = useCallback((x: number, y: number) => {
     const col = Math.floor(x / cellSize);
     const row = Math.floor(y / cellSize);
     
@@ -189,7 +187,7 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
       return { row, col };
     }
     return null;
-  };
+  }, [cellSize, gridDimensions]);
 
   // 计算两指间距离
   const getTouchDistance = (touches: React.TouchList) => {
@@ -212,7 +210,7 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
     if (gridPos) {
       onCellClick(gridPos.row, gridPos.col);
     }
-  }, [onCellClick, canvasScale, cellSize, gridDimensions]);
+  }, [onCellClick, getEventPosition, getGridPosition]);
 
   // 处理缩放
   const handleWheel = useCallback((event: React.WheelEvent) => {

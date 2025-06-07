@@ -61,7 +61,6 @@ export default function FocusMode() {
   // 从localStorage或URL参数获取像素数据
   const [mappedPixelData, setMappedPixelData] = useState<MappedPixel[][] | null>(null);
   const [gridDimensions, setGridDimensions] = useState<{ N: number; M: number } | null>(null);
-  const [selectedColorSystem, setSelectedColorSystem] = useState<ColorSystem>('MARD');
 
   // 专心模式状态
   const [focusState, setFocusState] = useState<FocusModeState>({
@@ -137,13 +136,10 @@ export default function FocusMode() {
         setMappedPixelData(pixelData);
         setGridDimensions(dimensions);
         
-        // 设置色号系统
-        if (savedColorSystem) {
-          setSelectedColorSystem(savedColorSystem as ColorSystem);
-        }
+        // 设置色号系统 - 已移除未使用的状态
 
         // 计算颜色进度
-        const colors = Object.entries(colorCounts).map(([colorKey, colorData]) => {
+        const colors = Object.entries(colorCounts).map(([, colorData]) => {
           const data = colorData as { color: string; count: number };
           // 通过hex值获取对应色号系统的色号
           const displayKey = getColorKeyByHex(data.color, savedColorSystem as ColorSystem || 'MARD');
@@ -346,7 +342,7 @@ export default function FocusMode() {
         return color;
       }));
     }
-  }, [mappedPixelData, focusState.currentColor, focusState.completedCells, focusState.colorProgress]);
+  }, [mappedPixelData, focusState.currentColor, focusState.completedCells, focusState.colorProgress, focusState.enableCelebration]);
 
   // 处理颜色切换
   const handleColorChange = useCallback((color: string) => {
