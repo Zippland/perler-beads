@@ -264,44 +264,39 @@ export default function FocusMode() {
 
   // 处理定位到推荐位置
   const handleLocateRecommended = useCallback(() => {
-    if (focusState.recommendedCell && gridDimensions) {
-      const { row, col } = focusState.recommendedCell;
-      
-      // 计算格子大小（与FocusCanvas中的计算保持一致）
-      const cellSize = Math.max(15, Math.min(40, 300 / Math.max(gridDimensions.N, gridDimensions.M)));
-      
-      // 计算推荐格子在画布上的像素位置（格子中心）
-      const targetX = (col + 0.5) * cellSize;
-      const targetY = (row + 0.5) * cellSize;
-      
-      // 计算画布总尺寸
-      const canvasWidth = gridDimensions.N * cellSize;
-      const canvasHeight = gridDimensions.M * cellSize;
-      
-      // 假设可视区域的尺寸（减去UI元素的空间）
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight - 200; // 减去顶部和底部UI的高度
-      
-      // 计算需要的偏移量，使目标位置居中显示
-      // 考虑到transform: scale() translate()的顺序，offset是在缩放后应用的
-      // 我们需要让画布中心对齐到视口中心，然后再偏移到目标位置
-      const canvasCenterX = canvasWidth / 2;
-      const canvasCenterY = canvasHeight / 2;
-      
-      // 目标位置相对画布中心的偏移
-      const targetOffsetX = targetX - canvasCenterX;
-      const targetOffsetY = targetY - canvasCenterY;
-      
-      // 最终偏移量：让画布中心对齐视口中心，然后减去目标偏移
-      const offsetX = (viewportWidth / 2) / focusState.canvasScale - canvasCenterX - targetOffsetX;
-      const offsetY = (viewportHeight / 2) / focusState.canvasScale - canvasCenterY - targetOffsetY;
-      
-      setFocusState(prev => ({
-        ...prev,
-        canvasOffset: { x: offsetX, y: offsetY }
-      }));
-    }
-  }, [focusState.recommendedCell, focusState.canvasScale, gridDimensions]);
+    if (!focusState.recommendedCell || !gridDimensions) return;
+    
+    const { row, col } = focusState.recommendedCell;
+    
+    // 计算格子大小（与FocusCanvas中的计算保持一致）
+    const cellSize = Math.max(15, Math.min(40, 300 / Math.max(gridDimensions.N, gridDimensions.M)));
+    
+    // 计算目标格子在画布上的中心位置（像素坐标）
+    const targetX = (col + 0.5) * cellSize;
+    const targetY = (row + 0.5) * cellSize;
+    
+    // 计算画布总尺寸
+    const canvasWidth = gridDimensions.N * cellSize;
+    const canvasHeight = gridDimensions.M * cellSize;
+    
+    // 简单的定位逻辑：
+    // 1. 将目标位置移到画布的中心位置
+    // 2. 考虑缩放的影响
+    
+    // 画布中心位置
+    const canvasCenterX = canvasWidth / 2;
+    const canvasCenterY = canvasHeight / 2;
+    
+    // 计算从目标位置到画布中心的偏移量
+    const offsetX = canvasCenterX - targetX;
+    const offsetY = canvasCenterY - targetY;
+    
+    // 更新状态
+    setFocusState(prev => ({
+      ...prev,
+      canvasOffset: { x: offsetX, y: offsetY }
+    }));
+  }, [focusState.recommendedCell, gridDimensions]);
 
   if (!mappedPixelData || !gridDimensions) {
     return (
