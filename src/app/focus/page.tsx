@@ -16,6 +16,8 @@ import ProgressBar from '../../components/ProgressBar';
 import ToolBar from '../../components/ToolBar';
 import ColorPanel from '../../components/ColorPanel';
 import SettingsPanel from '../../components/SettingsPanel';
+import CelebrationAnimation from '../../components/CelebrationAnimation';
+import CompletionCard from '../../components/CompletionCard';
 import { getColorKeyByHex, ColorSystem } from '../../utils/colorSystemUtils';
 
 interface FocusModeState {
@@ -45,6 +47,14 @@ interface FocusModeState {
   startTime: number; // 开始时间戳
   totalElapsedTime: number; // 总计用时（秒）
   lastResumeTime: number; // 最后一次恢复的时间戳
+  
+  // 显示设置
+  gridSectionInterval: number; // 网格分区间隔
+  showSectionLines: boolean; // 是否显示分割线
+  sectionLineColor: string; // 分割线颜色
+  enableCelebration: boolean; // 是否启用庆祝动画
+  showCelebration: boolean; // 是否显示庆祝动画
+  showCompletionCard: boolean; // 是否显示完成打卡图
 }
 
 export default function FocusMode() {
@@ -69,7 +79,13 @@ export default function FocusMode() {
     isPaused: false,
     startTime: Date.now(),
     totalElapsedTime: 0,
-    lastResumeTime: Date.now()
+    lastResumeTime: Date.now(),
+    gridSectionInterval: 10,
+    showSectionLines: true,
+    sectionLineColor: '#007acc',
+    enableCelebration: true,
+    showCelebration: false,
+    showCompletionCard: false
   });
 
   // 可用颜色列表
@@ -272,20 +288,52 @@ export default function FocusMode() {
 
       // 更新进度
       const newColorProgress = { ...focusState.colorProgress };
+      let colorJustCompleted = false;
+      
       if (newColorProgress[focusState.currentColor]) {
-        newColorProgress[focusState.currentColor].completed = Array.from(newCompletedCells)
+        const oldCompleted = newColorProgress[focusState.currentColor].completed;
+        const newCompleted = Array.from(newCompletedCells)
           .filter(key => {
             const [r, c] = key.split(',').map(Number);
             return mappedPixelData[r]?.[c]?.color === focusState.currentColor;
           }).length;
+        
+        newColorProgress[focusState.currentColor].completed = newCompleted;
+        
+        // 检测颜色是否刚刚完成
+        const total = newColorProgress[focusState.currentColor].total;
+        if (oldCompleted < total && newCompleted === total && focusState.enableCelebration) {
+          colorJustCompleted = true;
+        }
       }
 
-      setFocusState(prev => ({
-        ...prev,
-        completedCells: newCompletedCells,
-        selectedCell: { row, col },
-        colorProgress: newColorProgress
-      }));
+      // 检查是否所有颜色都完成了（包括当前刚完成的颜色）
+      const allColorsCompleted = Object.values(newColorProgress).every(
+        progress => progress.completed >= progress.total
+      );
+
+      setFocusState(prev => {
+        const now = Date.now();
+        let newState = {
+          ...prev,
+          completedCells: newCompletedCells,
+          selectedCell: { row, col },
+          colorProgress: newColorProgress,
+          showCelebration: colorJustCompleted
+        };
+
+        // 如果所有颜色都完成了，停止计时
+        if (allColorsCompleted && !prev.isPaused) {
+          const elapsed = Math.floor((now - prev.lastResumeTime) / 1000);
+          newState = {
+            ...newState,
+            isPaused: true,
+            totalElapsedTime: prev.totalElapsedTime + elapsed
+          };
+        }
+
+        return newState;
+      });
 
       // 更新可用颜色的完成数
       setAvailableColors(prev => prev.map(color => {
@@ -377,6 +425,40 @@ export default function FocusMode() {
     });
   }, []);
 
+  // 处理庆祝动画完成
+  const handleCelebrationComplete = useCallback(() => {
+    setFocusState(prev => ({ ...prev, showCelebration: false }));
+    
+    // 检查是否所有颜色都完成了
+    const allCompleted = availableColors.every(color => color.completed >= color.total);
+    
+    if (allCompleted) {
+      // 所有颜色都完成了，显示打卡图
+      setFocusState(prev => ({ ...prev, showCompletionCard: true }));
+    } else {
+      // 查找下一个未完成的颜色
+      const currentIndex = availableColors.findIndex(color => color.color === focusState.currentColor);
+      if (currentIndex !== -1) {
+        // 从当前颜色的下一个开始寻找未完成的颜色
+        for (let i = 1; i < availableColors.length; i++) {
+          const nextIndex = (currentIndex + i) % availableColors.length;
+          const nextColor = availableColors[nextIndex];
+          
+          // 如果找到未完成的颜色，切换到该颜色
+          if (nextColor.completed < nextColor.total) {
+            setFocusState(prev => ({ ...prev, currentColor: nextColor.color }));
+            break;
+          }
+        }
+      }
+    }
+  }, [availableColors, focusState.currentColor]);
+
+  // 处理打卡图关闭
+  const handleCompletionCardClose = useCallback(() => {
+    setFocusState(prev => ({ ...prev, showCompletionCard: false }));
+  }, []);
+
   if (!mappedPixelData || !gridDimensions) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -435,6 +517,9 @@ export default function FocusMode() {
           recommendedRegion={focusState.recommendedRegion}
           canvasScale={focusState.canvasScale}
           canvasOffset={focusState.canvasOffset}
+          gridSectionInterval={focusState.gridSectionInterval}
+          showSectionLines={focusState.showSectionLines}
+          sectionLineColor={focusState.sectionLineColor}
           onCellClick={handleCellClick}
           onScaleChange={(scale: number) => setFocusState(prev => ({ ...prev, canvasScale: scale }))}
           onOffsetChange={(offset: { x: number; y: number }) => setFocusState(prev => ({ ...prev, canvasOffset: offset }))}
@@ -472,9 +557,32 @@ export default function FocusMode() {
         <SettingsPanel
           guidanceMode={focusState.guidanceMode}
           onGuidanceModeChange={(mode: 'nearest' | 'largest' | 'edge-first') => setFocusState(prev => ({ ...prev, guidanceMode: mode }))}
+          gridSectionInterval={focusState.gridSectionInterval}
+          onGridSectionIntervalChange={(interval: number) => setFocusState(prev => ({ ...prev, gridSectionInterval: interval }))}
+          showSectionLines={focusState.showSectionLines}
+          onShowSectionLinesChange={(show: boolean) => setFocusState(prev => ({ ...prev, showSectionLines: show }))}
+          sectionLineColor={focusState.sectionLineColor}
+          onSectionLineColorChange={(color: string) => setFocusState(prev => ({ ...prev, sectionLineColor: color }))}
+          enableCelebration={focusState.enableCelebration}
+          onEnableCelebrationChange={(enable: boolean) => setFocusState(prev => ({ ...prev, enableCelebration: enable }))}
           onClose={() => setFocusState(prev => ({ ...prev, showSettingsPanel: false }))}
         />
       )}
+
+      {/* 庆祝动画 */}
+      <CelebrationAnimation
+        isVisible={focusState.showCelebration}
+        onComplete={handleCelebrationComplete}
+      />
+
+      {/* 完成打卡图 */}
+      <CompletionCard
+        isVisible={focusState.showCompletionCard}
+        mappedPixelData={mappedPixelData}
+        gridDimensions={gridDimensions}
+        totalElapsedTime={focusState.totalElapsedTime}
+        onClose={handleCompletionCardClose}
+      />
     </div>
   );
 }

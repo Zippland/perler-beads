@@ -3,14 +3,39 @@ import React from 'react';
 interface SettingsPanelProps {
   guidanceMode: 'nearest' | 'largest' | 'edge-first';
   onGuidanceModeChange: (mode: 'nearest' | 'largest' | 'edge-first') => void;
+  gridSectionInterval: number;
+  onGridSectionIntervalChange: (interval: number) => void;
+  showSectionLines: boolean;
+  onShowSectionLinesChange: (show: boolean) => void;
+  sectionLineColor: string;
+  onSectionLineColorChange: (color: string) => void;
+  enableCelebration: boolean;
+  onEnableCelebrationChange: (enable: boolean) => void;
   onClose: () => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
   guidanceMode,
   onGuidanceModeChange,
+  gridSectionInterval,
+  onGridSectionIntervalChange,
+  showSectionLines,
+  onShowSectionLinesChange,
+  sectionLineColor,
+  onSectionLineColorChange,
+  enableCelebration,
+  onEnableCelebrationChange,
   onClose
 }) => {
+  // 分割线颜色选项
+  const sectionLineColors = [
+    { color: '#007acc', name: '蓝色' },
+    { color: '#28a745', name: '绿色' },
+    { color: '#dc3545', name: '红色' },
+    { color: '#6f42c1', name: '紫色' },
+    { color: '#fd7e14', name: '橙色' },
+    { color: '#6c757d', name: '灰色' }
+  ];
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-end">
       <div className="w-80 max-w-[90vw] h-full bg-white shadow-lg flex flex-col">
@@ -83,79 +108,85 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           {/* 显示设置 */}
           <div>
             <h3 className="text-base font-medium text-gray-800 mb-3">显示设置</h3>
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* 分割线开关 */}
               <label className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-gray-700">显示网格线</div>
-                  <div className="text-xs text-gray-500">显示格子边框</div>
+                  <div className="text-sm font-medium text-gray-700">显示分割线</div>
+                  <div className="text-xs text-gray-500">将画布分割成区块帮助定位</div>
                 </div>
                 <input
                   type="checkbox"
-                  defaultChecked={true}
+                  checked={showSectionLines}
+                  onChange={(e) => onShowSectionLinesChange(e.target.checked)}
                   className="h-4 w-4 text-blue-600 rounded"
                 />
               </label>
 
+              {/* 只有开启分割线时才显示后续选项 */}
+              {showSectionLines && (
+                <>
+                  {/* 分割线间隔 */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      分割间隔
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="range"
+                        min="5"
+                        max="20"
+                        value={gridSectionInterval}
+                        onChange={(e) => onGridSectionIntervalChange(parseInt(e.target.value))}
+                        className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-gray-700 min-w-[3rem]">
+                        {gridSectionInterval} 格
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 分割线颜色 */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      分割线颜色
+                    </label>
+                    <div className="flex gap-2 flex-wrap">
+                      {sectionLineColors.map((colorOption) => (
+                        <button
+                          key={colorOption.color}
+                          onClick={() => onSectionLineColorChange(colorOption.color)}
+                          className={`w-6 h-6 rounded-full border-2 transition-all ${
+                            sectionLineColor === colorOption.color
+                              ? 'border-gray-800 scale-110'
+                              : 'border-gray-300 hover:border-gray-500'
+                          }`}
+                          style={{ backgroundColor: colorOption.color }}
+                          title={colorOption.name}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 庆祝动画开关 */}
               <label className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-gray-700">显示色号</div>
-                  <div className="text-xs text-gray-500">在格子内显示色号</div>
+                  <div className="text-sm font-medium text-gray-700">庆祝动画</div>
+                  <div className="text-xs text-gray-500">完成颜色时显示撒花效果</div>
                 </div>
                 <input
                   type="checkbox"
-                  defaultChecked={true}
+                  checked={enableCelebration}
+                  onChange={(e) => onEnableCelebrationChange(e.target.checked)}
                   className="h-4 w-4 text-blue-600 rounded"
                 />
               </label>
-
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-2">
-                  网格透明度
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  defaultValue="80"
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>透明</span>
-                  <span>不透明</span>
-                </div>
-              </div>
             </div>
           </div>
 
-          {/* 反馈设置 */}
-          <div>
-            <h3 className="text-base font-medium text-gray-800 mb-3">反馈设置</h3>
-            <div className="space-y-3">
-              <label className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-gray-700">震动反馈</div>
-                  <div className="text-xs text-gray-500">完成格子时震动提示</div>
-                </div>
-                <input
-                  type="checkbox"
-                  defaultChecked={true}
-                  className="h-4 w-4 text-blue-600 rounded"
-                />
-              </label>
 
-              <label className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-gray-700">声音提示</div>
-                  <div className="text-xs text-gray-500">完成格子时播放音效</div>
-                </div>
-                <input
-                  type="checkbox"
-                  defaultChecked={false}
-                  className="h-4 w-4 text-blue-600 rounded"
-                />
-              </label>
-            </div>
-          </div>
 
           {/* 进度重置 */}
           <div>

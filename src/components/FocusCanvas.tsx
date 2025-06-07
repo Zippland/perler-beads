@@ -10,6 +10,9 @@ interface FocusCanvasProps {
   recommendedRegion: { row: number; col: number }[] | null;
   canvasScale: number;
   canvasOffset: { x: number; y: number };
+  gridSectionInterval: number;
+  showSectionLines: boolean;
+  sectionLineColor: string;
   onCellClick: (row: number, col: number) => void;
   onScaleChange: (scale: number) => void;
   onOffsetChange: (offset: { x: number; y: number }) => void;
@@ -24,6 +27,9 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
   recommendedRegion,
   canvasScale,
   canvasOffset,
+  gridSectionInterval,
+  showSectionLines,
+  sectionLineColor,
   onCellClick,
   onScaleChange,
   onOffsetChange
@@ -121,25 +127,36 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
           ctx.fill();
         }
 
-        // 绘制网格线
-        ctx.strokeStyle = isGrayedOut ? '#ccc' : '#e0e0e0';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, cellSize, cellSize);
 
-        // 绘制色号文字（只在格子足够大时）
-        if (cellSize > 20 && !isGrayedOut) {
-          ctx.fillStyle = '#333';
-          ctx.font = `${Math.max(8, cellSize / 4)}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          
-          // 简化色号显示（取色值的后几位）
-          const colorText = pixel.color.substring(1, 4).toUpperCase();
-          ctx.fillText(colorText, x + cellSize / 2, y + cellSize / 2);
-        }
+
+
       }
     }
-  }, [mappedPixelData, gridDimensions, cellSize, currentColor, completedCells, recommendedCell, recommendedRegion]);
+
+    // 绘制分区线（在所有格子绘制完成后）
+    if (showSectionLines) {
+      ctx.strokeStyle = sectionLineColor;
+      ctx.lineWidth = 2;
+      
+      // 绘制竖直分区线
+      for (let col = gridSectionInterval; col < gridDimensions.N; col += gridSectionInterval) {
+        const x = col * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvasHeight);
+        ctx.stroke();
+      }
+      
+      // 绘制水平分区线
+      for (let row = gridSectionInterval; row < gridDimensions.M; row += gridSectionInterval) {
+        const y = row * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvasWidth, y);
+        ctx.stroke();
+      }
+    }
+  }, [mappedPixelData, gridDimensions, cellSize, currentColor, completedCells, recommendedCell, recommendedRegion, gridSectionInterval, showSectionLines, sectionLineColor]);
 
   // 处理触摸/鼠标事件
   const getEventPosition = (event: React.MouseEvent | React.TouchEvent) => {
