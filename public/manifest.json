@@ -1,7 +1,7 @@
 {
-  "name": "七卡瓦 - 小清新拼豆创作工具",
+  "name": "七卡瓦拼豆底稿生成器",
   "short_name": "七卡瓦",
-  "description": "七卡瓦是一个小清新风格的拼豆创作工具，让你轻松制作精美的像素画作品",
+  "description": "七卡瓦拼豆底稿生成器，让你轻松制作精美的像素画作品",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#E8F4FD",
