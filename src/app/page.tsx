@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, ChangeEvent, DragEvent, useEffect, useMemo, useCallback } from 'react';
 import Script from 'next/script';
+import InstallPWA from '../components/InstallPWA';
 
 // 导入像素化工具和类型
 import {
@@ -1748,6 +1749,9 @@ export default function Home() {
     <>
     {/* 添加自定义动画样式 */}
     <style dangerouslySetInnerHTML={{ __html: floatAnimation }} />
+    
+    {/* PWA 安装按钮 */}
+    <InstallPWA />
     
     {/* ++ 修改：添加 onLoad 回调函数 ++ */}
     <Script
