@@ -23,4 +23,49 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* 防止iOS Safari的弹性滚动 */
+  overscroll-behavior: none;
+  /* 优化移动端触摸延迟 */
+  touch-action: manipulation;
+}
+
+/* 移动端优化 */
+@media (max-width: 640px) {
+  /* 防止双击缩放 */
+  * {
+    touch-action: manipulation;
+  }
+  
+  /* 优化输入框在移动端的体验，防止iOS自动缩放 */
+  input[type="text"], 
+  input[type="number"], 
+  select, 
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* 自定义滚动条样式 */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+/* 添加点击反馈的动画 */
+.active\:scale-98:active {
+  transform: scale(0.98);
 }

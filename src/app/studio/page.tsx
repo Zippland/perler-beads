@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { MappedPixel } from '../../utils/pixelation';
+import { useRouter } from 'next/navigation';
+import { 
+  MappedPixel, 
+  PixelationMode,
+  calculatePixelGrid,
+  PaletteColor,
+  hexToRgb
+} from '../../utils/pixelation';
 import { 
   getAllConnectedRegions, 
   isRegionCompleted, 
@@ -18,7 +25,12 @@ import ColorPanel from '../../components/ColorPanel';
 import SettingsPanel from '../../components/SettingsPanel';
 import CelebrationAnimation from '../../components/CelebrationAnimation';
 import CompletionCard from '../../components/CompletionCard';
-import { getColorKeyByHex, ColorSystem } from '../../utils/colorSystemUtils';
+import PreviewToolbar from '../../components/PreviewToolbar';
+import EditToolbar from '../../components/EditToolbar';
+import { getColorKeyByHex, ColorSystem, getMardToHexMapping } from '../../utils/colorSystemUtils';
+
+// 定义编辑模式类型
+type EditMode = 'focus' | 'preview' | 'edit';
 
 interface FocusModeState {
   // 当前状态
@@ -55,9 +67,24 @@ interface FocusModeState {
   enableCelebration: boolean; // 是否启用庆祝动画
   showCelebration: boolean; // 是否显示庆祝动画
   showCompletionCard: boolean; // 是否显示完成打卡图
+  
+  // 模式
+  editMode: EditMode;
 }
 
+// 获取完整色板
+const mardToHexMapping = getMardToHexMapping();
+const fullBeadPalette: PaletteColor[] = Object.entries(mardToHexMapping)
+  .map(([, hex]) => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return null;
+    return { key: hex, hex, rgb };
+  })
+  .filter((item): item is PaletteColor => item !== null);
+
 export default function FocusMode() {
+  const router = useRouter();
+  
   // 从localStorage或URL参数获取像素数据
   const [mappedPixelData, setMappedPixelData] = useState<MappedPixel[][] | null>(null);
   const [gridDimensions, setGridDimensions] = useState<{ N: number; M: number } | null>(null);
@@ -84,7 +111,8 @@ export default function FocusMode() {
     sectionLineColor: '#007acc',
     enableCelebration: true,
     showCelebration: false,
-    showCompletionCard: false
+    showCompletionCard: false,
+    editMode: 'preview'  // 默认为预览模式
   });
 
   // 可用颜色列表
@@ -94,6 +122,27 @@ export default function FocusMode() {
     total: number;
     completed: number;
   }>>([]);
+  
+  // 预览模式状态
+  const [gridWidth, setGridWidth] = useState<number>(100); // 默认100格子宽度
+  const [colorMergeThreshold, setColorMergeThreshold] = useState<number>(30); // 颜色合并阈值，默认30
+  const [pixelationMode, setPixelationMode] = useState<PixelationMode>(PixelationMode.Dominant);
+  const [removeBackground, setRemoveBackground] = useState<boolean>(false);
+  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  
+  // 编辑模式状态
+  const [editTool, setEditTool] = useState<'select' | 'wand'>('select');
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
+  const [history, setHistory] = useState<MappedPixel[][][]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  
+  // 计算状态
+  const hasSelection = selectedCells.size > 0;
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
 
   // 计时器管理
   useEffect(() => {
@@ -120,8 +169,100 @@ export default function FocusMode() {
     };
   }, [focusState.isPaused]);
 
-  // 从localStorage加载数据
+  // 处理上传的图片
   useEffect(() => {
+    // 先检查是否有上传的图片
+    const uploadedImage = localStorage.getItem('uploadedImage');
+    if (uploadedImage) {
+      // 清除上传的图片，避免重复处理
+      localStorage.removeItem('uploadedImage');
+      
+      // 生成像素画
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        // 固定宽度为100格子，高度按比例计算
+        const N = 100; // N是横向（宽度），固定100格子
+        const aspectRatio = img.height / img.width;
+        const M = Math.round(N * aspectRatio); // M是纵向（高度），按比例计算
+
+        // 获取备用颜色
+        const fallbackColor = fullBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
+
+        // 计算像素网格
+        const pixelData = calculatePixelGrid(
+          ctx,
+          img.width,
+          img.height,
+          N,
+          M,
+          fullBeadPalette,
+          PixelationMode.Dominant,
+          fallbackColor
+        );
+
+        // 计算颜色统计
+        const counts: { [key: string]: { count: number; color: string } } = {};
+        pixelData.forEach(row => {
+          row.forEach(pixel => {
+            if (pixel.key && pixel.key !== 'transparent' && !pixel.isExternal) {
+              if (!counts[pixel.key]) {
+                counts[pixel.key] = { count: 0, color: pixel.color };
+              }
+              counts[pixel.key].count++;
+            }
+          });
+        });
+
+        // 保存到专心模式的 localStorage
+        localStorage.setItem('focusMode_pixelData', JSON.stringify(pixelData));
+        localStorage.setItem('focusMode_gridDimensions', JSON.stringify({ N, M }));
+        localStorage.setItem('focusMode_colorCounts', JSON.stringify(counts));
+        localStorage.setItem('focusMode_selectedColorSystem', 'MARD');
+        localStorage.setItem('focusMode_originalImage', uploadedImage); // 保存原始图片
+
+        // 设置状态
+        setMappedPixelData(pixelData);
+        setGridDimensions({ N, M });
+
+        // 计算颜色进度
+        const colors = Object.entries(counts).map(([, colorData]) => {
+          const displayKey = getColorKeyByHex(colorData.color, 'MARD');
+          return {
+            color: colorData.color,
+            name: displayKey,
+            total: colorData.count,
+            completed: 0
+          };
+        });
+        setAvailableColors(colors);
+
+        // 设置初始当前颜色
+        if (colors.length > 0) {
+          setFocusState(prev => ({
+            ...prev,
+            currentColor: colors[0].color,
+            colorProgress: colors.reduce((acc, color) => ({
+              ...acc,
+              [color.color]: { completed: 0, total: color.total }
+            }), {})
+          }));
+          // 预览模式也设置初始颜色
+          setSelectedColor(colors[0].color);
+        }
+      };
+      img.src = uploadedImage;
+      return; // 如果有上传的图片，就不再检查保存的数据
+    }
+
+    // 从localStorage加载数据
     const savedPixelData = localStorage.getItem('focusMode_pixelData');
     const savedGridDimensions = localStorage.getItem('focusMode_gridDimensions');
     const savedColorCounts = localStorage.getItem('focusMode_colorCounts');
@@ -162,17 +303,19 @@ export default function FocusMode() {
               [color.color]: { completed: 0, total: color.total }
             }), {})
           }));
+          // 预览模式也设置初始颜色
+          setSelectedColor(colors[0].color);
         }
       } catch (error) {
         console.error('Failed to load focus mode data:', error);
         // 重定向到主页面
-        window.location.href = '/';
+        router.push('/');
       }
     } else {
       // 没有数据，重定向到主页面
-      window.location.href = '/';
+      router.push('/');
     }
-  }, []);
+  }, [router]);
 
   // 计算推荐的下一个区域
   const calculateRecommendedRegion = useCallback(() => {
@@ -252,14 +395,14 @@ export default function FocusMode() {
     }));
   }, [calculateRecommendedRegion]);
 
-  // 处理格子点击 - 改为区域洪水填充标记
+  // 处理格子点击 - 根据不同模式执行不同操作
   const handleCellClick = useCallback((row: number, col: number) => {
     if (!mappedPixelData) return;
 
     const cellColor = mappedPixelData[row][col].color;
-
-    // 如果点击的是当前颜色的格子，对整个连通区域进行标记
-    if (cellColor === focusState.currentColor) {
+    
+    // 专心模式：标记区域
+    if (focusState.editMode === 'focus' && cellColor === focusState.currentColor) {
       // 获取点击位置的连通区域
       const region = getConnectedRegion(mappedPixelData, row, col, focusState.currentColor);
       
@@ -342,7 +485,49 @@ export default function FocusMode() {
         return color;
       }));
     }
-  }, [mappedPixelData, focusState.currentColor, focusState.completedCells, focusState.colorProgress, focusState.enableCelebration]);
+    
+    // 预览模式：不处理点击
+    if (focusState.editMode === 'preview') {
+      return;
+    }
+    
+    // 编辑模式：处理选择
+    if (focusState.editMode === 'edit') {
+      if (editTool === 'select') {
+        // 矩形选择
+        if (!isSelecting) {
+          // 开始选择
+          setIsSelecting(true);
+          setSelectionStart({ row, col });
+          setSelectedCells(new Set([`${row},${col}`]));
+        }
+      } else if (editTool === 'wand') {
+        // 魔棒选择（选择相同颜色的连通区域）
+        const targetColor = cellColor;
+        const visited = new Set<string>();
+        const toVisit = [`${row},${col}`];
+        const newSelection = new Set<string>();
+        
+        while (toVisit.length > 0) {
+          const current = toVisit.pop()!;
+          if (visited.has(current)) continue;
+          visited.add(current);
+          
+          const [r, c] = current.split(',').map(Number);
+          if (r < 0 || r >= mappedPixelData.length || c < 0 || c >= mappedPixelData[0].length) continue;
+          
+          if (mappedPixelData[r][c].color === targetColor) {
+            newSelection.add(current);
+            
+            // 添加相邻格子
+            toVisit.push(`${r-1},${c}`, `${r+1},${c}`, `${r},${c-1}`, `${r},${c+1}`);
+          }
+        }
+        
+        setSelectedCells(newSelection);
+      }
+    }
+  }, [mappedPixelData, focusState, editTool, isSelecting]);
 
   // 处理颜色切换
   const handleColorChange = useCallback((color: string) => {
@@ -454,6 +639,211 @@ export default function FocusMode() {
   const handleCompletionCardClose = useCallback(() => {
     setFocusState(prev => ({ ...prev, showCompletionCard: false }));
   }, []);
+  
+  // 重新生成像素画
+  const regeneratePixelArt = useCallback(() => {
+    // 获取原始图片
+    const imageSrc = localStorage.getItem('focusMode_originalImage') || localStorage.getItem('uploadedImage');
+    if (!imageSrc) return;
+    
+    setIsProcessing(true);
+    
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setIsProcessing(false);
+        return;
+      }
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      // 使用新的参数生成
+      const N = gridWidth; // N是横向（宽度）
+      const aspectRatio = img.height / img.width;
+      const M = Math.round(N * aspectRatio); // M是纵向（高度）
+
+      // 获取备用颜色
+      const fallbackColor = fullBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
+
+      // 计算像素网格
+      const pixelData = calculatePixelGrid(
+        ctx,
+        img.width,
+        img.height,
+        N,
+        M,
+        fullBeadPalette,
+        pixelationMode,
+        fallbackColor
+      );
+
+      // TODO: 实现颜色合并和去背景功能
+      // if (colorMergeThreshold > 0) { ... }
+      // if (removeBackground) { ... }
+
+      // 计算颜色统计
+      const counts: { [key: string]: { count: number; color: string } } = {};
+      pixelData.forEach(row => {
+        row.forEach(pixel => {
+          if (pixel.key && pixel.key !== 'transparent' && !pixel.isExternal) {
+            if (!counts[pixel.key]) {
+              counts[pixel.key] = { count: 0, color: pixel.color };
+            }
+            counts[pixel.key].count++;
+          }
+        });
+      });
+
+      // 更新状态
+      setMappedPixelData(pixelData);
+      setGridDimensions({ N, M });
+
+      // 更新颜色列表
+      const colors = Object.entries(counts).map(([, colorData]) => {
+        const displayKey = getColorKeyByHex(colorData.color, 'MARD');
+        return {
+          color: colorData.color,
+          name: displayKey,
+          total: colorData.count,
+          completed: 0
+        };
+      });
+      setAvailableColors(colors);
+
+      // 如果没有选中颜色，选择第一个
+      if (!selectedColor && colors.length > 0) {
+        setSelectedColor(colors[0].color);
+      }
+
+      setIsProcessing(false);
+    };
+    img.src = imageSrc;
+  }, [gridWidth, pixelationMode, colorMergeThreshold, removeBackground, selectedColor]);
+  
+  // 编辑模式：保存历史记录
+  const saveToHistory = useCallback(() => {
+    if (!mappedPixelData) return;
+    
+    // 如果不在历史末尾，删除后面的历史
+    const newHistory = history.slice(0, historyIndex + 1);
+    
+    // 深拷贝当前状态
+    const currentState = mappedPixelData.map(row => row.map(pixel => ({ ...pixel })));
+    
+    // 添加到历史
+    newHistory.push(currentState);
+    
+    // 限制历史记录数量
+    if (newHistory.length > 50) {
+      newHistory.shift();
+    }
+    
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [mappedPixelData, history, historyIndex]);
+  
+  // 编辑模式：撤销
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setMappedPixelData(history[historyIndex - 1]);
+    }
+  }, [history, historyIndex]);
+  
+  // 编辑模式：重做
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setMappedPixelData(history[historyIndex + 1]);
+    }
+  }, [history, historyIndex]);
+  
+  // 编辑模式：执行操作
+  const handleEditOperation = useCallback((operation: 'fill' | 'clear' | 'invert') => {
+    if (!mappedPixelData) return;
+    
+    saveToHistory();
+    
+    const newPixelData = mappedPixelData.map(row => row.map(pixel => ({ ...pixel })));
+    
+    if (operation === 'fill' && selectedColor) {
+      // 填充选中区域
+      selectedCells.forEach(cellKey => {
+        const [row, col] = cellKey.split(',').map(Number);
+        if (newPixelData[row] && newPixelData[row][col]) {
+          newPixelData[row][col] = {
+            ...newPixelData[row][col],
+            color: selectedColor,
+            key: selectedColor
+          };
+        }
+      });
+    } else if (operation === 'clear') {
+      // 清除选中区域
+      selectedCells.forEach(cellKey => {
+        const [row, col] = cellKey.split(',').map(Number);
+        if (newPixelData[row] && newPixelData[row][col]) {
+          newPixelData[row][col] = {
+            ...newPixelData[row][col],
+            color: 'transparent',
+            key: 'transparent'
+          };
+        }
+      });
+    } else if (operation === 'invert') {
+      // 反选
+      const newSelection = new Set<string>();
+      for (let row = 0; row < newPixelData.length; row++) {
+        for (let col = 0; col < newPixelData[row].length; col++) {
+          const cellKey = `${row},${col}`;
+          if (!selectedCells.has(cellKey)) {
+            newSelection.add(cellKey);
+          }
+        }
+      }
+      setSelectedCells(newSelection);
+      return; // 反选不修改像素数据
+    }
+    
+    setMappedPixelData(newPixelData);
+  }, [mappedPixelData, selectedColor, selectedCells, saveToHistory]);
+  
+  // 编辑模式：处理鼠标悬停（用于矩形选择）
+  const handleCellHover = useCallback((row: number, col: number) => {
+    if (!isSelecting || !selectionStart) return;
+    
+    // 计算矩形选择区域
+    const minRow = Math.min(selectionStart.row, row);
+    const maxRow = Math.max(selectionStart.row, row);
+    const minCol = Math.min(selectionStart.col, col);
+    const maxCol = Math.max(selectionStart.col, col);
+    
+    const newSelection = new Set<string>();
+    for (let r = minRow; r <= maxRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        newSelection.add(`${r},${c}`);
+      }
+    }
+    
+    setSelectedCells(newSelection);
+  }, [isSelecting, selectionStart]);
+  
+  // 编辑模式：结束选择
+  const handleSelectionEnd = useCallback(() => {
+    setIsSelecting(false);
+  }, []);
+  
+  // 监听 pixelationMode 变化并重新生成
+  useEffect(() => {
+    // 只有在有图片数据时才重新生成
+    if (mappedPixelData && focusState.editMode === 'preview') {
+      regeneratePixelArt();
+    }
+  }, [pixelationMode]); // 只监听 pixelationMode 的变化
 
   if (!mappedPixelData || !gridDimensions) {
     return (
@@ -472,45 +862,79 @@ export default function FocusMode() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* 顶部导航栏 */}
-      <header className="h-15 bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      {/* 顶部导航栏 - 移动端优化 */}
+      <header className="bg-white shadow-sm border-b border-gray-200 px-3 py-2 flex items-center justify-between">
         <button 
           onClick={() => window.history.back()}
-          className="flex items-center text-gray-600 hover:text-gray-800"
+          className="p-2 -ml-2 text-gray-600 active:bg-gray-100 rounded-lg"
         >
-          <svg className="w-6 h-6 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          返回
         </button>
-        <h1 className="text-lg font-medium text-gray-800">专心拼豆（AlphaTest）</h1>
+        
+        {/* 模式切换 - 紧凑设计 */}
+        <div className="flex bg-gray-100 rounded-lg p-0.5 text-xs">
+          <button
+            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'preview' }))}
+            className={`px-2 py-1 rounded ${
+              focusState.editMode === 'preview'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600'
+            }`}
+          >
+            预览
+          </button>
+          <button
+            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'focus' }))}
+            className={`px-2 py-1 rounded ${
+              focusState.editMode === 'focus'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600'
+            }`}
+          >
+            专心
+          </button>
+          <button
+            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'edit' }))}
+            className={`px-2 py-1 rounded ${
+              focusState.editMode === 'edit'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600'
+            }`}
+          >
+            编辑
+          </button>
+        </div>
+        
         <button 
           onClick={() => setFocusState(prev => ({ ...prev, showSettingsPanel: true }))}
-          className="text-gray-600 hover:text-gray-800"
+          className="p-2 -mr-2 text-gray-600 active:bg-gray-100 rounded-lg"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
           </svg>
         </button>
       </header>
 
-      {/* 当前颜色状态栏 */}
-      <ColorStatusBar 
-        currentColor={focusState.currentColor}
-        colorInfo={currentColorInfo}
-        progressPercentage={progressPercentage}
-      />
+      {/* 当前颜色状态栏 - 仅在专心模式显示 */}
+      {focusState.editMode === 'focus' && (
+        <ColorStatusBar 
+          currentColor={focusState.currentColor}
+          colorInfo={currentColorInfo}
+          progressPercentage={progressPercentage}
+        />
+      )}
 
       {/* 主画布区域 */}
       <div className="flex-1 relative overflow-hidden">
         <FocusCanvas
           mappedPixelData={mappedPixelData}
           gridDimensions={gridDimensions}
-          currentColor={focusState.currentColor}
-          completedCells={focusState.completedCells}
-          recommendedCell={focusState.recommendedCell}
-          recommendedRegion={focusState.recommendedRegion}
+          currentColor={focusState.editMode === 'focus' ? focusState.currentColor : selectedColor}
+          completedCells={focusState.editMode === 'focus' ? focusState.completedCells : new Set()}
+          recommendedCell={focusState.editMode === 'focus' ? focusState.recommendedCell : null}
+          recommendedRegion={focusState.editMode === 'focus' ? focusState.recommendedRegion : null}
           canvasScale={focusState.canvasScale}
           canvasOffset={focusState.canvasOffset}
           gridSectionInterval={focusState.gridSectionInterval}
@@ -519,24 +943,70 @@ export default function FocusMode() {
           onCellClick={handleCellClick}
           onScaleChange={(scale: number) => setFocusState(prev => ({ ...prev, canvasScale: scale }))}
           onOffsetChange={(offset: { x: number; y: number }) => setFocusState(prev => ({ ...prev, canvasOffset: offset }))}
+          highlightColor={null}
+          editMode={focusState.editMode}
+          selectedCells={focusState.editMode === 'edit' ? selectedCells : null}
+          onCellHover={focusState.editMode === 'edit' && isSelecting ? handleCellHover : undefined}
+          onSelectionEnd={focusState.editMode === 'edit' ? handleSelectionEnd : undefined}
         />
       </div>
 
-      {/* 快速进度条 */}
-      <ProgressBar 
-        progressPercentage={progressPercentage}
-        recommendedCell={focusState.recommendedCell}
-        colorInfo={currentColorInfo}
-      />
+      {/* 快速进度条 - 仅在专心模式显示 */}
+      {focusState.editMode === 'focus' && (
+        <ProgressBar 
+          progressPercentage={progressPercentage}
+          recommendedCell={focusState.recommendedCell}
+          colorInfo={currentColorInfo}
+        />
+      )}
 
-      {/* 底部工具栏 */}
-      <ToolBar 
-        onColorSelect={() => setFocusState(prev => ({ ...prev, showColorPanel: true }))}
-        onLocate={handleLocateRecommended}
-        onPause={handlePauseToggle}
-        isPaused={focusState.isPaused}
-        elapsedTime={formatTime(focusState.totalElapsedTime)}
-      />
+      {/* 底部工具栏 - 根据模式显示不同内容 */}
+      {focusState.editMode === 'focus' && (
+        <ToolBar 
+          onColorSelect={() => setFocusState(prev => ({ ...prev, showColorPanel: true }))}
+          onLocate={handleLocateRecommended}
+          onPause={handlePauseToggle}
+          isPaused={focusState.isPaused}
+          elapsedTime={formatTime(focusState.totalElapsedTime)}
+        />
+      )}
+      
+      {/* 预览模式工具栏 */}
+      {focusState.editMode === 'preview' && (
+        <PreviewToolbar
+          gridWidth={gridWidth}
+          colorMergeThreshold={colorMergeThreshold}
+          pixelationMode={pixelationMode}
+          removeBackground={removeBackground}
+          availableColors={availableColors}
+          mappedPixelData={mappedPixelData}
+          isProcessing={isProcessing}
+          onGridWidthChange={setGridWidth}
+          onColorMergeThresholdChange={setColorMergeThreshold}
+          onPixelationModeChange={setPixelationMode}
+          onRemoveBackgroundChange={setRemoveBackground}
+          onRegenerate={regeneratePixelArt}
+        />
+      )}
+      
+      {/* 编辑模式工具栏 */}
+      {focusState.editMode === 'edit' && (
+        <EditToolbar
+          editTool={editTool}
+          hasSelection={hasSelection}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          selectedColor={selectedColor}
+          availableColors={availableColors}
+          selectedCells={selectedCells}
+          onEditToolChange={setEditTool}
+          onEditOperation={handleEditOperation}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onColorSelect={setSelectedColor}
+          onShowColorPanel={() => setFocusState(prev => ({ ...prev, showColorPanel: true }))}
+        />
+      )}
 
       {/* 颜色选择面板 */}
       {focusState.showColorPanel && (

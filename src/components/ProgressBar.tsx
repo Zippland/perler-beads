@@ -23,7 +23,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     return (
       <div
         key={index}
-        className={`w-3 h-3 rounded-full ${
+        className={`w-2 h-2 rounded-full ${
           isFilled ? 'bg-blue-500' : 'bg-gray-300'
         }`}
       />
@@ -31,19 +31,19 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
   });
 
   return (
-    <div className="h-10 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
-      <div className="flex items-center space-x-2">
+    <div className="h-8 bg-white border-b border-gray-200 px-4 py-1.5 flex items-center justify-between">
+      <div className="flex items-center space-x-1.5">
         {progressDots}
-        <span className="ml-2 text-sm font-medium text-gray-700">
+        <span className="ml-1.5 text-xs font-medium text-gray-700">
           {progressPercentage}%
         </span>
       </div>
       
       <div className="text-xs text-gray-500">
         {recommendedCell ? (
-          <span>下一块 → {recommendedCell.row + 1},{recommendedCell.col + 1}</span>
+          <span>下一块 {recommendedCell.row + 1},{recommendedCell.col + 1}</span>
         ) : (
-          <span>已完成当前颜色</span>
+          <span>已完成</span>
         )}
       </div>
     </div>

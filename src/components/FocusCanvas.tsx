@@ -16,6 +16,11 @@ interface FocusCanvasProps {
   onCellClick: (row: number, col: number) => void;
   onScaleChange: (scale: number) => void;
   onOffsetChange: (offset: { x: number; y: number }) => void;
+  highlightColor?: string | null;
+  editMode?: 'focus' | 'preview' | 'edit';
+  selectedCells?: Set<string> | null;
+  onCellHover?: (row: number, col: number) => void;
+  onSelectionEnd?: () => void;
 }
 
 const FocusCanvas: React.FC<FocusCanvasProps> = ({
@@ -32,7 +37,12 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
   sectionLineColor,
   onCellClick,
   onScaleChange,
-  onOffsetChange
+  onOffsetChange,
+  highlightColor,
+  editMode = 'focus',
+  selectedCells,
+  onCellHover,
+  onSelectionEnd
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,8 +84,8 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         // 确定格子颜色
         let fillColor = pixel.color;
 
-        // 如果不是当前颜色，显示为灰度
-        if (pixel.color !== currentColor) {
+        // 专心模式：如果不是当前颜色，显示为灰度
+        if (editMode === 'focus' && pixel.color !== currentColor) {
           // 转换为灰度
           const hex = pixel.color.replace('#', '');
           const r = parseInt(hex.substr(0, 2), 16);
@@ -84,13 +94,40 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
           const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
           fillColor = `rgb(${gray}, ${gray}, ${gray})`;
         }
+        
+        // 预览模式：高亮显示选中的颜色
+        if (editMode === 'preview' && highlightColor && pixel.color === highlightColor) {
+          // 保持原色，稍后会添加高亮效果
+        }
 
         // 绘制格子背景
         ctx.fillStyle = fillColor;
         ctx.fillRect(x, y, cellSize, cellSize);
+        
+        // 预览模式：添加高亮效果
+        if (editMode === 'preview' && highlightColor && pixel.color === highlightColor) {
+          ctx.fillStyle = 'rgba(255, 255, 0, 0.4)'; // 黄色高亮
+          ctx.fillRect(x, y, cellSize, cellSize);
+          
+          // 添加闪烁边框
+          ctx.strokeStyle = '#ffff00';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+        }
+        
+        // 编辑模式：显示选中的单元格
+        if (editMode === 'edit' && selectedCells && selectedCells.has(cellKey)) {
+          ctx.fillStyle = 'rgba(0, 123, 255, 0.3)'; // 蓝色半透明
+          ctx.fillRect(x, y, cellSize, cellSize);
+          
+          // 添加选中边框
+          ctx.strokeStyle = '#007bff';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+        }
 
-        // 如果是已完成的格子且是当前颜色，添加勾选标记
-        if (completedCells.has(cellKey) && pixel.color === currentColor) {
+        // 如果是已完成的格子且是当前颜色，添加勾选标记（仅专心模式）
+        if (editMode === 'focus' && completedCells.has(cellKey) && pixel.color === currentColor) {
           ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
           ctx.fillRect(x, y, cellSize, cellSize);
           
@@ -154,7 +191,7 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         ctx.stroke();
       }
     }
-  }, [mappedPixelData, gridDimensions, cellSize, currentColor, completedCells, recommendedCell, recommendedRegion, gridSectionInterval, showSectionLines, sectionLineColor]);
+  }, [mappedPixelData, gridDimensions, cellSize, currentColor, completedCells, recommendedCell, recommendedRegion, gridSectionInterval, showSectionLines, sectionLineColor, highlightColor, editMode, selectedCells]);
 
   // 处理触摸/鼠标事件
   const getEventPosition = useCallback((event: React.MouseEvent | React.TouchEvent) => {
@@ -302,6 +339,18 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
   }, []);
 
   const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    // 编辑模式下的悬停
+    if (editMode === 'edit' && onCellHover) {
+      const pos = getEventPosition(event);
+      if (pos) {
+        const gridPos = getGridPosition(pos.x, pos.y);
+        if (gridPos) {
+          onCellHover(gridPos.row, gridPos.col);
+        }
+      }
+    }
+    
+    // 拖拽
     if (isDragging && lastPanPoint) {
       const deltaX = event.clientX - lastPanPoint.x;
       const deltaY = event.clientY - lastPanPoint.y;
@@ -316,12 +365,17 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         y: event.clientY
       });
     }
-  }, [isDragging, lastPanPoint, canvasOffset, onOffsetChange]);
+  }, [isDragging, lastPanPoint, canvasOffset, onOffsetChange, editMode, onCellHover, getEventPosition, getGridPosition]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
     setLastPanPoint(null);
-  }, []);
+    
+    // 编辑模式下结束选择
+    if (editMode === 'edit' && onSelectionEnd) {
+      onSelectionEnd();
+    }
+  }, [editMode, onSelectionEnd]);
 
   // 渲染画布
   useEffect(() => {
