@@ -37,6 +37,12 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
   onRemoveBackgroundChange,
   onRegenerate
 }) => {
+  const [mergeInputValue, setMergeInputValue] = React.useState<string>(colorMergeThreshold.toString());
+  
+  React.useEffect(() => {
+    setMergeInputValue(colorMergeThreshold.toString());
+  }, [colorMergeThreshold]);
+  
   return (
     <div className="bg-white/95 backdrop-blur-xl border-t border-gray-200/50">
       {/* 控制项区域 */}
@@ -92,9 +98,11 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
               <label className="block text-[11px] text-gray-500 text-center">颜色合并阈值</label>
               <input
                 type="text"
-                value={colorMergeThreshold === 0 ? '' : colorMergeThreshold}
+                value={mergeInputValue}
                 onChange={(e) => {
                   const val = e.target.value;
+                  setMergeInputValue(val);
+                  
                   if (val === '') {
                     onColorMergeThresholdChange(0);
                   } else {
@@ -115,8 +123,11 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
                     finalValue = 450;
                   }
                   
+                  // 更新输入框显示值
+                  setMergeInputValue(finalValue.toString());
+                  
                   // 只在值需要修正时才更新
-                  if (finalValue !== val || isNaN(val)) {
+                  if (finalValue !== val || isNaN(val) || e.target.value === '') {
                     onColorMergeThresholdChange(finalValue);
                   }
                   
