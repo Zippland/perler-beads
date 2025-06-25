@@ -873,38 +873,9 @@ export default function FocusMode() {
           </svg>
         </button>
         
-        {/* 模式切换 - 紧凑设计 */}
-        <div className="flex bg-gray-100 rounded-lg p-0.5 text-xs">
-          <button
-            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'preview' }))}
-            className={`px-2 py-1 rounded ${
-              focusState.editMode === 'preview'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            预览
-          </button>
-          <button
-            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'focus' }))}
-            className={`px-2 py-1 rounded ${
-              focusState.editMode === 'focus'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            专心
-          </button>
-          <button
-            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'edit' }))}
-            className={`px-2 py-1 rounded ${
-              focusState.editMode === 'edit'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            编辑
-          </button>
+        {/* Logo 位置预留 */}
+        <div className="flex-1 flex items-center justify-center">
+          {/* TODO: 添加 Logo */}
         </div>
         
         <button 
@@ -916,6 +887,15 @@ export default function FocusMode() {
           </svg>
         </button>
       </header>
+      
+      {/* 状态信息栏 - 显示颜色数量和像素尺寸 */}
+      <div className="bg-gray-50 border-b border-gray-200 px-4 py-1.5">
+        <div className="text-sm text-gray-700 font-mono tracking-wide">
+          <span className="font-medium">{availableColors.length}色</span>
+          <span className="mx-3 text-gray-400">|</span>
+          <span className="font-medium">{mappedPixelData ? `${mappedPixelData[0]?.length || 0}×${mappedPixelData.length}` : '0×0'}</span>
+        </div>
+      </div>
 
       {/* 当前颜色状态栏 - 仅在专心模式显示 */}
       {focusState.editMode === 'focus' && (
@@ -1007,6 +987,42 @@ export default function FocusMode() {
           onShowColorPanel={() => setFocusState(prev => ({ ...prev, showColorPanel: true }))}
         />
       )}
+      
+      {/* 底部模式切换栏 */}
+      <div className="bg-white border-t border-gray-200 px-4 py-3">
+        <div className="flex bg-gray-100 rounded-lg p-1 max-w-md mx-auto">
+          <button
+            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'preview' }))}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              focusState.editMode === 'preview'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            预览
+          </button>
+          <button
+            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'edit' }))}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              focusState.editMode === 'edit'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            编辑
+          </button>
+          <button
+            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'focus' }))}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              focusState.editMode === 'focus'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            专心
+          </button>
+        </div>
+      </div>
 
       {/* 颜色选择面板 */}
       {focusState.showColorPanel && (

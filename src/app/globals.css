@@ -69,3 +69,49 @@ body {
 .active\:scale-98:active {
   transform: scale(0.98);
 }
+
+/* 自定义滑块样式 - 极简高级设计 */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: transparent;
+  height: 1px;
+}
+
+input[type="range"]::-moz-range-track {
+  background: transparent;
+  height: 1px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #000;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  margin-top: -5.5px;
+  transition: transform 0.2s;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: #000;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  border: none;
+  transition: transform 0.2s;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+  transform: scale(1.1);
+}

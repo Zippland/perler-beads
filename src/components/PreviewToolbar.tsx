@@ -38,14 +38,14 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
   onRegenerate
 }) => {
   return (
-    <div className="bg-white border-t border-gray-200">
+    <div className="bg-white/95 backdrop-blur-xl border-t border-gray-200/50">
       {/* 控制项区域 */}
-      <div className="p-3 border-b border-gray-100">
-        <div className="flex items-center gap-3 overflow-x-auto scrollbar-thin">
+      <div className="px-4 py-3">
+        <div className="grid grid-cols-4 gap-2">
           {/* 网格宽度 */}
-          <div className="flex-shrink-0 bg-gray-50 rounded-lg px-3 py-2 min-w-[64px]">
-            <div className="text-center">
-              <div className="text-xs text-gray-600 mb-1">宽度</div>
+          <div className="relative">
+            <div className="space-y-1.5">
+              <label className="block text-[11px] text-gray-500 text-center">横轴格子数</label>
               <input
                 type="number"
                 min="20"
@@ -53,12 +53,10 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
                 value={gridWidth}
                 onChange={(e) => {
                   const val = e.target.value;
-                  // 允许输入空值或任何数字
                   onGridWidthChange(val === '' ? 0 : Number(val));
                 }}
                 onBlur={(e) => {
                   const val = Number(e.target.value);
-                  // 处理空值或无效值
                   if (isNaN(val) || val < 20) {
                     onGridWidthChange(20);
                   } else if (val > 200) {
@@ -66,15 +64,15 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
                   }
                   onRegenerate();
                 }}
-                className="w-12 px-1 py-1 text-xs text-center border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                className="w-full h-8 px-0 text-center text-sm font-medium text-gray-900 bg-transparent border-0 border-b border-gray-200 focus:border-gray-900 focus:outline-none transition-all duration-200"
               />
             </div>
           </div>
 
           {/* 颜色合并 */}
-          <div className="flex-shrink-0 bg-gray-50 rounded-lg px-3 py-2 min-w-[64px]">
-            <div className="text-center">
-              <div className="text-xs text-gray-600 mb-1">合并</div>
+          <div className="relative">
+            <div className="space-y-1.5">
+              <label className="block text-[11px] text-gray-500 text-center">颜色合并阈值</label>
               <input
                 type="number"
                 min="0"
@@ -82,12 +80,10 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
                 value={colorMergeThreshold}
                 onChange={(e) => {
                   const val = e.target.value;
-                  // 允许输入空值或任何数字
                   onColorMergeThresholdChange(val === '' ? 0 : Number(val));
                 }}
                 onBlur={(e) => {
                   const val = Number(e.target.value);
-                  // 处理空值或无效值
                   if (isNaN(val) || val < 0) {
                     onColorMergeThresholdChange(0);
                   } else if (val > 100) {
@@ -95,63 +91,54 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
                   }
                   onRegenerate();
                 }}
-                className="w-12 px-1 py-1 text-xs text-center border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                className="w-full h-8 px-0 text-center text-sm font-medium text-gray-900 bg-transparent border-0 border-b border-gray-200 focus:border-gray-900 focus:outline-none transition-all duration-200"
               />
             </div>
           </div>
 
           {/* 算法模式 */}
-          <div className="flex-shrink-0 bg-gray-50 rounded-lg px-3 py-2 min-w-[64px]">
-            <div className="text-center">
-              <div className="text-xs text-gray-600 mb-1">算法</div>
+          <div className="relative">
+            <div className="space-y-1.5">
+              <label className="block text-[11px] text-gray-500 text-center">渲染算法</label>
               <button
                 onClick={() => {
-                  // 切换模式
                   const newMode = pixelationMode === PixelationMode.Dominant 
                     ? PixelationMode.Average 
                     : PixelationMode.Dominant;
                   onPixelationModeChange(newMode);
                 }}
-                className="px-3 py-1 text-xs bg-white text-gray-700 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                className="w-full h-8 flex items-center justify-center relative overflow-hidden group"
               >
-                {pixelationMode === PixelationMode.Dominant ? '主导' : '平均'}
+                <div className="absolute inset-0 bg-gray-100 rounded-full scale-90 group-hover:scale-100 transition-transform duration-200"></div>
+                <span className="relative text-xs font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
+                  {pixelationMode === PixelationMode.Dominant ? '主导色' : '平均色'}
+                </span>
               </button>
             </div>
           </div>
 
           {/* 背景处理 */}
-          <div className="flex-shrink-0 bg-gray-50 rounded-lg px-3 py-2 min-w-[64px]">
-            <div className="text-center">
-              <div className="text-xs text-gray-600 mb-1">背景</div>
+          <div className="relative">
+            <div className="space-y-1.5">
+              <label className="block text-[11px] text-gray-500 text-center">去背景</label>
               <button
                 onClick={() => {
                   onRemoveBackgroundChange(!removeBackground);
                   onRegenerate();
                 }}
-                className={`px-2 py-1 text-xs rounded ${
-                  removeBackground
-                    ? 'bg-red-500 text-white'
-                    : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100'
-                }`}
+                className="w-full h-8 relative"
               >
-                {removeBackground ? '去除' : '保留'}
+                <div className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200"
+                     style={{ backgroundColor: removeBackground ? '#000' : '#e5e7eb' }}>
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      removeBackground ? 'translate-x-5' : 'translate-x-1'
+                    }`}
+                  />
+                </div>
               </button>
             </div>
           </div>
-
-        </div>
-      </div>
-
-      {/* 信息显示区域 */}
-      <div className="px-3 py-2 bg-gray-50/50">
-        <div className="flex items-center justify-between text-xs text-gray-600">
-          <div className="flex items-center gap-3">
-            <span>{availableColors.length} 种颜色</span>
-            <span>
-              {mappedPixelData ? `${mappedPixelData[0]?.length || 0} × ${mappedPixelData.length}` : '0 × 0'} 像素
-            </span>
-          </div>
-          
         </div>
       </div>
     </div>
