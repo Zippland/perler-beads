@@ -435,6 +435,11 @@ export default function FocusMode() {
     if (!pixel.isExternal && pixel.key !== 'transparent') {
       const colorKey = getColorKeyByHex(cellColor, selectedColorSystem);
       setClickedCellColor({ hex: cellColor, key: colorKey });
+      
+      // 3秒后自动消失
+      setTimeout(() => {
+        setClickedCellColor(null);
+      }, 3000);
     } else {
       setClickedCellColor(null);
     }
