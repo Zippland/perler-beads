@@ -169,7 +169,6 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
               <button
                 onClick={() => {
                   onRemoveBackgroundChange(!removeBackground);
-                  onRegenerate();
                 }}
                 className="w-full h-8 relative"
               >

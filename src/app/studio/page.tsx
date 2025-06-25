@@ -757,8 +757,117 @@ export default function FocusMode() {
         });
       }
       
-      // TODO: 实现去背景功能
-      // if (removeBackground) { ... }
+      // 实现去背景功能
+      if (removeBackground) {
+        const rows = pixelData.length;
+        const cols = pixelData[0]?.length || 0;
+        
+        // 统计边缘颜色
+        const edgeColorCounts: { [key: string]: number } = {};
+        
+        // 统计上边缘
+        for (let x = 0; x < cols; x++) {
+          const color = pixelData[0][x].color;
+          if (color && color !== 'transparent') {
+            edgeColorCounts[color] = (edgeColorCounts[color] || 0) + 1;
+          }
+        }
+        
+        // 统计下边缘
+        for (let x = 0; x < cols; x++) {
+          const color = pixelData[rows - 1][x].color;
+          if (color && color !== 'transparent') {
+            edgeColorCounts[color] = (edgeColorCounts[color] || 0) + 1;
+          }
+        }
+        
+        // 统计左边缘（排除角落避免重复计数）
+        for (let y = 1; y < rows - 1; y++) {
+          const color = pixelData[y][0].color;
+          if (color && color !== 'transparent') {
+            edgeColorCounts[color] = (edgeColorCounts[color] || 0) + 1;
+          }
+        }
+        
+        // 统计右边缘（排除角落避免重复计数）
+        for (let y = 1; y < rows - 1; y++) {
+          const color = pixelData[y][cols - 1].color;
+          if (color && color !== 'transparent') {
+            edgeColorCounts[color] = (edgeColorCounts[color] || 0) + 1;
+          }
+        }
+        
+        // 找出边缘最多的颜色
+        let mostCommonEdgeColor = '';
+        let maxCount = 0;
+        for (const [color, count] of Object.entries(edgeColorCounts)) {
+          if (count > maxCount) {
+            maxCount = count;
+            mostCommonEdgeColor = color;
+          }
+        }
+        
+        // 如果找到了最常见的边缘颜色，进行洪水填充
+        if (mostCommonEdgeColor) {
+          // 洪水填充函数
+          const floodFill = (startY: number, startX: number, targetColor: string) => {
+            const visited = new Set<string>();
+            const queue: [number, number][] = [[startY, startX]];
+            
+            while (queue.length > 0) {
+              const [y, x] = queue.shift()!;
+              const key = `${y},${x}`;
+              
+              // 检查边界和是否已访问
+              if (y < 0 || y >= rows || x < 0 || x >= cols || visited.has(key)) {
+                continue;
+              }
+              
+              visited.add(key);
+              
+              // 检查颜色是否匹配
+              if (pixelData[y][x].color !== targetColor) {
+                continue;
+              }
+              
+              // 标记为外部（背景）
+              pixelData[y][x].isExternal = true;
+              
+              // 添加相邻像素到队列
+              queue.push([y - 1, x], [y + 1, x], [y, x - 1], [y, x + 1]);
+            }
+          };
+          
+          // 从所有边缘开始洪水填充
+          // 上边缘
+          for (let x = 0; x < cols; x++) {
+            if (pixelData[0][x].color === mostCommonEdgeColor && !pixelData[0][x].isExternal) {
+              floodFill(0, x, mostCommonEdgeColor);
+            }
+          }
+          
+          // 下边缘
+          for (let x = 0; x < cols; x++) {
+            if (pixelData[rows - 1][x].color === mostCommonEdgeColor && !pixelData[rows - 1][x].isExternal) {
+              floodFill(rows - 1, x, mostCommonEdgeColor);
+            }
+          }
+          
+          // 左边缘
+          for (let y = 0; y < rows; y++) {
+            if (pixelData[y][0].color === mostCommonEdgeColor && !pixelData[y][0].isExternal) {
+              floodFill(y, 0, mostCommonEdgeColor);
+            }
+          }
+          
+          // 右边缘
+          for (let y = 0; y < rows; y++) {
+            if (pixelData[y][cols - 1].color === mostCommonEdgeColor && !pixelData[y][cols - 1].isExternal) {
+              floodFill(y, cols - 1, mostCommonEdgeColor);
+            }
+          }
+        }
+      }
 
       // 计算颜色统计
       const counts: { [key: string]: { count: number; color: string } } = {};
@@ -919,6 +1028,14 @@ export default function FocusMode() {
       regeneratePixelArt();
     }
   }, [pixelationMode]); // 只监听 pixelationMode 的变化
+  
+  // 监听 removeBackground 变化并重新生成
+  useEffect(() => {
+    // 只有在有图片数据时才重新生成
+    if (mappedPixelData && focusState.editMode === 'preview') {
+      regeneratePixelArt();
+    }
+  }, [removeBackground]); // 只监听 removeBackground 的变化
 
   if (!mappedPixelData || !gridDimensions) {
     return (

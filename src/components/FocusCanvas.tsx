@@ -81,6 +81,9 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         const y = row * cellSize;
         const cellKey = `${row},${col}`;
 
+        // 跳过外部或透明像素
+        if (pixel.isExternal || pixel.key === 'transparent') continue;
+
         // 确定格子颜色
         let fillColor = pixel.color;
 
@@ -191,7 +194,7 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         ctx.stroke();
       }
     }
-  }, [mappedPixelData, gridDimensions, cellSize, currentColor, completedCells, recommendedCell, recommendedRegion, gridSectionInterval, showSectionLines, sectionLineColor, highlightColor, editMode, selectedCells]);
+  }, [mappedPixelData, gridDimensions, cellSize, currentColor, completedCells, recommendedCell, recommendedRegion, gridSectionInterval, showSectionLines, sectionLineColor, highlightColor, editMode, selectedCells, canvasScale]);
 
   // 处理触摸/鼠标事件
   const getEventPosition = useCallback((event: React.MouseEvent | React.TouchEvent) => {
@@ -385,8 +388,13 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="w-full h-full flex items-center justify-center overflow-hidden bg-gray-100"
-      style={{ touchAction: 'none' }}
+      className="w-full h-full flex items-center justify-center overflow-hidden"
+      style={{ 
+        touchAction: 'none',
+        backgroundImage: `repeating-conic-gradient(#f0f0f0 0% 25%, white 0% 50%)`,
+        backgroundSize: '20px 20px',
+        backgroundPosition: '0 0, 10px 10px'
+      }}
     >
       <div
         style={{
@@ -397,6 +405,7 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
         <canvas
           ref={canvasRef}
           className="cursor-crosshair border border-gray-300"
+          style={{ backgroundColor: 'transparent' }}
           onClick={handleClick}
           onWheel={handleWheel}
           onTouchStart={handleTouchStart}
