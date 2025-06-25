@@ -7,7 +7,9 @@ import {
   PixelationMode,
   calculatePixelGrid,
   PaletteColor,
-  hexToRgb
+  hexToRgb,
+  RgbColor,
+  colorDistance
 } from '../../utils/pixelation';
 import { 
   getAllConnectedRegions, 
@@ -661,8 +663,12 @@ export default function FocusMode() {
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
 
-      // 使用新的参数生成
-      const N = gridWidth; // N是横向（宽度）
+      // 使用新的参数生成，确保在合法范围内
+      let N = gridWidth; // N是横向（宽度）
+      // 确保N在合法范围内
+      if (N < 10) N = 10;
+      if (N > 300) N = 300;
+      
       const aspectRatio = img.height / img.width;
       const M = Math.round(N * aspectRatio); // M是纵向（高度）
 
@@ -681,8 +687,77 @@ export default function FocusMode() {
         fallbackColor
       );
 
-      // TODO: 实现颜色合并和去背景功能
-      // if (colorMergeThreshold > 0) { ... }
+      // 实现颜色合并功能
+      // 确保阈值在合法范围内
+      let mergeThreshold = colorMergeThreshold;
+      if (mergeThreshold < 0) mergeThreshold = 0;
+      if (mergeThreshold > 450) mergeThreshold = 450;
+      
+      if (mergeThreshold > 0) {
+        // 首先统计所有颜色的使用次数
+        const colorCounts: { [key: string]: { count: number; rgb: RgbColor } } = {};
+        
+        pixelData.forEach(row => {
+          row.forEach(pixel => {
+            if (pixel.key && pixel.key !== 'transparent' && !pixel.isExternal) {
+              if (!colorCounts[pixel.color]) {
+                const rgb = hexToRgb(pixel.color);
+                if (rgb) {
+                  colorCounts[pixel.color] = { count: 0, rgb };
+                }
+              }
+              if (colorCounts[pixel.color]) {
+                colorCounts[pixel.color].count++;
+              }
+            }
+          });
+        });
+        
+        // 按数量从多到少排序
+        const sortedColors = Object.entries(colorCounts)
+          .sort((a, b) => b[1].count - a[1].count)
+          .map(([color, data]) => ({ color, ...data }));
+        
+        // 创建颜色映射表
+        const colorMap: { [key: string]: string } = {};
+        
+        // 从数量最多的颜色开始遍历
+        sortedColors.forEach((colorA, index) => {
+          // 如果这个颜色已经被合并到其他颜色，跳过
+          if (colorMap[colorA.color]) return;
+          
+          // 将自己映射到自己
+          colorMap[colorA.color] = colorA.color;
+          
+          // 检查后面的颜色是否可以合并到这个颜色
+          for (let j = index + 1; j < sortedColors.length; j++) {
+            const colorB = sortedColors[j];
+            
+            // 如果颜色B已经被合并，跳过
+            if (colorMap[colorB.color]) continue;
+            
+            // 计算两个颜色的距离
+            const distance = colorDistance(colorA.rgb, colorB.rgb);
+            
+            // 如果距离小于阈值，将B合并到A
+            if (distance < mergeThreshold) {
+              colorMap[colorB.color] = colorA.color;
+            }
+          }
+        });
+        
+        // 应用颜色映射
+        pixelData.forEach(row => {
+          row.forEach(pixel => {
+            if (pixel.color && colorMap[pixel.color]) {
+              pixel.color = colorMap[pixel.color];
+              pixel.key = colorMap[pixel.color];
+            }
+          });
+        });
+      }
+      
+      // TODO: 实现去背景功能
       // if (removeBackground) { ... }
 
       // 计算颜色统计

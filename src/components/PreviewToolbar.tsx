@@ -64,12 +64,16 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
                   const val = Number(e.target.value);
                   let finalValue = val;
                   
+                  // 先确定最终值
                   if (isNaN(val) || val < 10) {
                     finalValue = 10;
-                    onGridWidthChange(10);
                   } else if (val > 300) {
                     finalValue = 300;
-                    onGridWidthChange(300);
+                  }
+                  
+                  // 只在值需要修正时才更新
+                  if (finalValue !== val || isNaN(val)) {
+                    onGridWidthChange(finalValue);
                   }
                   
                   // 使用 setTimeout 确保状态更新完成后再渲染
@@ -104,12 +108,16 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
                   const val = Number(e.target.value);
                   let finalValue = val;
                   
+                  // 先确定最终值
                   if (isNaN(val) || val < 0) {
                     finalValue = 0;
-                    onColorMergeThresholdChange(0);
                   } else if (val > 450) {
                     finalValue = 450;
-                    onColorMergeThresholdChange(450);
+                  }
+                  
+                  // 只在值需要修正时才更新
+                  if (finalValue !== val || isNaN(val)) {
+                    onColorMergeThresholdChange(finalValue);
                   }
                   
                   // 使用 setTimeout 确保状态更新完成后再渲染
