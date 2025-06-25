@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { MappedPixel } from '../utils/pixelation';
 
-interface FocusCanvasProps {
+interface UnifiedCanvasProps {
   mappedPixelData: MappedPixel[][];
   gridDimensions: { N: number; M: number };
   currentColor: string;
@@ -23,7 +23,7 @@ interface FocusCanvasProps {
   onSelectionEnd?: () => void;
 }
 
-const FocusCanvas: React.FC<FocusCanvasProps> = ({
+const UnifiedCanvas: React.FC<UnifiedCanvasProps> = ({
   mappedPixelData,
   gridDimensions,
   currentColor,
@@ -421,4 +421,4 @@ const FocusCanvas: React.FC<FocusCanvasProps> = ({
   );
 };
 
-export default FocusCanvas;
+export default UnifiedCanvas;

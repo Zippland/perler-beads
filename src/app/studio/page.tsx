@@ -19,7 +19,7 @@ import {
   sortRegionsBySize,
   getConnectedRegion
 } from '../../utils/floodFillUtils';
-import FocusCanvas from '../../components/FocusCanvas';
+import UnifiedCanvas from '../../components/UnifiedCanvas';
 import ColorStatusBar from '../../components/ColorStatusBar';
 import ProgressBar from '../../components/ProgressBar';
 import ToolBar from '../../components/ToolBar';
@@ -542,7 +542,7 @@ export default function FocusMode() {
     
     const { row, col } = focusState.recommendedCell;
     
-    // 计算格子大小（与FocusCanvas中的计算保持一致）
+    // 计算格子大小（与UnifiedCanvas中的计算保持一致）
     const cellSize = Math.max(15, Math.min(40, 300 / Math.max(gridDimensions.N, gridDimensions.M)));
     
     // 计算目标格子在画布上的中心位置（像素坐标）
@@ -1100,7 +1100,7 @@ export default function FocusMode() {
 
       {/* 主画布区域 */}
       <div className="flex-1 relative overflow-hidden">
-        <FocusCanvas
+        <UnifiedCanvas
           mappedPixelData={mappedPixelData}
           gridDimensions={gridDimensions}
           currentColor={focusState.editMode === 'focus' ? focusState.currentColor : selectedColor}
