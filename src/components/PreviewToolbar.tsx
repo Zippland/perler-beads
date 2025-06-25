@@ -47,24 +47,37 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
             <div className="space-y-1.5">
               <label className="block text-[11px] text-gray-500 text-center">横轴格子数</label>
               <input
-                type="number"
-                min="20"
-                max="200"
-                value={gridWidth}
+                type="text"
+                value={gridWidth === 0 ? '' : gridWidth}
                 onChange={(e) => {
                   const val = e.target.value;
-                  onGridWidthChange(val === '' ? 0 : Number(val));
+                  if (val === '') {
+                    onGridWidthChange(0);
+                  } else {
+                    const num = Number(val);
+                    if (!isNaN(num)) {
+                      onGridWidthChange(num);
+                    }
+                  }
                 }}
                 onBlur={(e) => {
                   const val = Number(e.target.value);
-                  if (isNaN(val) || val < 20) {
-                    onGridWidthChange(20);
-                  } else if (val > 200) {
-                    onGridWidthChange(200);
+                  let finalValue = val;
+                  
+                  if (isNaN(val) || val < 10) {
+                    finalValue = 10;
+                    onGridWidthChange(10);
+                  } else if (val > 300) {
+                    finalValue = 300;
+                    onGridWidthChange(300);
                   }
-                  onRegenerate();
+                  
+                  // 使用 setTimeout 确保状态更新完成后再渲染
+                  setTimeout(() => {
+                    onRegenerate();
+                  }, 0);
                 }}
-                className="w-full h-8 px-0 text-center text-sm font-medium text-gray-900 bg-transparent border-0 border-b border-gray-200 focus:border-gray-900 focus:outline-none transition-all duration-200"
+                className="w-full h-8 px-0 text-center text-lg font-light text-gray-900 bg-transparent border-0 focus:outline-none focus:text-black transition-colors duration-200"
               />
             </div>
           </div>
@@ -74,24 +87,37 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
             <div className="space-y-1.5">
               <label className="block text-[11px] text-gray-500 text-center">颜色合并阈值</label>
               <input
-                type="number"
-                min="0"
-                max="100"
-                value={colorMergeThreshold}
+                type="text"
+                value={colorMergeThreshold === 0 ? '' : colorMergeThreshold}
                 onChange={(e) => {
                   const val = e.target.value;
-                  onColorMergeThresholdChange(val === '' ? 0 : Number(val));
+                  if (val === '') {
+                    onColorMergeThresholdChange(0);
+                  } else {
+                    const num = Number(val);
+                    if (!isNaN(num)) {
+                      onColorMergeThresholdChange(num);
+                    }
+                  }
                 }}
                 onBlur={(e) => {
                   const val = Number(e.target.value);
+                  let finalValue = val;
+                  
                   if (isNaN(val) || val < 0) {
+                    finalValue = 0;
                     onColorMergeThresholdChange(0);
-                  } else if (val > 100) {
-                    onColorMergeThresholdChange(100);
+                  } else if (val > 450) {
+                    finalValue = 450;
+                    onColorMergeThresholdChange(450);
                   }
-                  onRegenerate();
+                  
+                  // 使用 setTimeout 确保状态更新完成后再渲染
+                  setTimeout(() => {
+                    onRegenerate();
+                  }, 0);
                 }}
-                className="w-full h-8 px-0 text-center text-sm font-medium text-gray-900 bg-transparent border-0 border-b border-gray-200 focus:border-gray-900 focus:outline-none transition-all duration-200"
+                className="w-full h-8 px-0 text-center text-lg font-light text-gray-900 bg-transparent border-0 focus:outline-none focus:text-black transition-colors duration-200"
               />
             </div>
           </div>
