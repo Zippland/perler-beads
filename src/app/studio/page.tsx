@@ -29,7 +29,8 @@ import CelebrationAnimation from '../../components/CelebrationAnimation';
 import CompletionCard from '../../components/CompletionCard';
 import PreviewToolbar from '../../components/PreviewToolbar';
 import EditToolbar from '../../components/EditToolbar';
-import { getColorKeyByHex, ColorSystem, getMardToHexMapping } from '../../utils/colorSystemUtils';
+import ColorSystemPanel from '../../components/ColorSystemPanel';
+import { getColorKeyByHex, ColorSystem, getMardToHexMapping, getAllHexValues } from '../../utils/colorSystemUtils';
 
 // 定义编辑模式类型
 type EditMode = 'focus' | 'preview' | 'edit';
@@ -74,15 +75,6 @@ interface FocusModeState {
   editMode: EditMode;
 }
 
-// 获取完整色板
-const mardToHexMapping = getMardToHexMapping();
-const fullBeadPalette: PaletteColor[] = Object.entries(mardToHexMapping)
-  .map(([, hex]) => {
-    const rgb = hexToRgb(hex);
-    if (!rgb) return null;
-    return { key: hex, hex, rgb };
-  })
-  .filter((item): item is PaletteColor => item !== null);
 
 export default function FocusMode() {
   const router = useRouter();
@@ -133,6 +125,12 @@ export default function FocusMode() {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   
+  // 色号系统和点击格子颜色信息的状态
+  const [selectedColorSystem, setSelectedColorSystem] = useState<ColorSystem>('MARD');
+  const [clickedCellColor, setClickedCellColor] = useState<{ hex: string; key: string } | null>(null);
+  const [showColorSystemPanel, setShowColorSystemPanel] = useState(false);
+  const [customPalette, setCustomPalette] = useState<Set<string>>(new Set(getAllHexValues()));
+  
   // 编辑模式状态
   const [editTool, setEditTool] = useState<'select' | 'wand'>('select');
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
@@ -145,6 +143,26 @@ export default function FocusMode() {
   const hasSelection = selectedCells.size > 0;
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
+
+  // 在客户端加载保存的设置
+  useEffect(() => {
+    // 加载色号系统
+    const savedColorSystem = localStorage.getItem('selectedColorSystem');
+    if (savedColorSystem) {
+      setSelectedColorSystem(savedColorSystem as ColorSystem);
+    }
+    
+    // 加载自定义色板
+    const savedPalette = localStorage.getItem('customPalette');
+    if (savedPalette) {
+      try {
+        const palette = new Set<string>(JSON.parse(savedPalette));
+        setCustomPalette(palette);
+      } catch (e) {
+        console.error('Failed to load custom palette:', e);
+      }
+    }
+  }, []);
 
   // 计时器管理
   useEffect(() => {
@@ -195,8 +213,17 @@ export default function FocusMode() {
         const aspectRatio = img.height / img.width;
         const M = Math.round(N * aspectRatio); // M是纵向（高度），按比例计算
 
+        // 根据自定义色板构建可用颜色
+        const activeBeadPalette: PaletteColor[] = Array.from(customPalette)
+          .map(hex => {
+            const rgb = hexToRgb(hex);
+            if (!rgb) return null;
+            return { key: hex, hex, rgb };
+          })
+          .filter((color): color is PaletteColor => color !== null);
+
         // 获取备用颜色
-        const fallbackColor = fullBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
+        const fallbackColor = activeBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
 
         // 计算像素网格
         const pixelData = calculatePixelGrid(
@@ -205,7 +232,7 @@ export default function FocusMode() {
           img.height,
           N,
           M,
-          fullBeadPalette,
+          activeBeadPalette,
           PixelationMode.Dominant,
           fallbackColor
         );
@@ -402,6 +429,15 @@ export default function FocusMode() {
     if (!mappedPixelData) return;
 
     const cellColor = mappedPixelData[row][col].color;
+    const pixel = mappedPixelData[row][col];
+    
+    // 更新点击的格子颜色信息（所有模式下都执行）
+    if (!pixel.isExternal && pixel.key !== 'transparent') {
+      const colorKey = getColorKeyByHex(cellColor, selectedColorSystem);
+      setClickedCellColor({ hex: cellColor, key: colorKey });
+    } else {
+      setClickedCellColor(null);
+    }
     
     // 专心模式：标记区域
     if (focusState.editMode === 'focus' && cellColor === focusState.currentColor) {
@@ -529,7 +565,7 @@ export default function FocusMode() {
         setSelectedCells(newSelection);
       }
     }
-  }, [mappedPixelData, focusState, editTool, isSelecting]);
+  }, [mappedPixelData, focusState, editTool, isSelecting, selectedColorSystem]);
 
   // 处理颜色切换
   const handleColorChange = useCallback((color: string) => {
@@ -672,8 +708,17 @@ export default function FocusMode() {
       const aspectRatio = img.height / img.width;
       const M = Math.round(N * aspectRatio); // M是纵向（高度）
 
+      // 根据自定义色板构建可用颜色
+      const activeBeadPalette: PaletteColor[] = Array.from(customPalette)
+        .map(hex => {
+          const rgb = hexToRgb(hex);
+          if (!rgb) return null;
+          return { key: hex, hex, rgb };
+        })
+        .filter((color): color is PaletteColor => color !== null);
+
       // 获取备用颜色
-      const fallbackColor = fullBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
+      const fallbackColor = activeBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
 
       // 计算像素网格
       const pixelData = calculatePixelGrid(
@@ -682,7 +727,7 @@ export default function FocusMode() {
         img.height,
         N,
         M,
-        fullBeadPalette,
+        activeBeadPalette,
         pixelationMode,
         fallbackColor
       );
@@ -888,7 +933,7 @@ export default function FocusMode() {
 
       // 更新颜色列表
       const colors = Object.entries(counts).map(([, colorData]) => {
-        const displayKey = getColorKeyByHex(colorData.color, 'MARD');
+        const displayKey = getColorKeyByHex(colorData.color, selectedColorSystem);
         return {
           color: colorData.color,
           name: displayKey,
@@ -906,7 +951,7 @@ export default function FocusMode() {
       setIsProcessing(false);
     };
     img.src = imageSrc;
-  }, [gridWidth, pixelationMode, colorMergeThreshold, removeBackground, selectedColor]);
+  }, [gridWidth, pixelationMode, colorMergeThreshold, removeBackground, selectedColor, selectedColorSystem, customPalette]);
   
   // 编辑模式：保存历史记录
   const saveToHistory = useCallback(() => {
@@ -1036,6 +1081,16 @@ export default function FocusMode() {
       regeneratePixelArt();
     }
   }, [removeBackground]); // 只监听 removeBackground 的变化
+  
+  // 当色号系统改变时，更新所有颜色的名称
+  useEffect(() => {
+    if (availableColors.length > 0 && !isProcessing) {
+      setAvailableColors(prev => prev.map(color => ({
+        ...color,
+        name: getColorKeyByHex(color.color, selectedColorSystem)
+      })));
+    }
+  }, [selectedColorSystem]);
 
   if (!mappedPixelData || !gridDimensions) {
     return (
@@ -1070,6 +1125,14 @@ export default function FocusMode() {
           {/* TODO: 添加 Logo */}
         </div>
         
+        {/* 色板系统选择 */}
+        <button
+          onClick={() => setShowColorSystemPanel(true)}
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium mr-2"
+        >
+          {selectedColorSystem} ▼
+        </button>
+        
         <button 
           onClick={() => setFocusState(prev => ({ ...prev, showSettingsPanel: true }))}
           className="p-2 -mr-2 text-gray-600 active:bg-gray-100 rounded-lg"
@@ -1081,12 +1144,24 @@ export default function FocusMode() {
       </header>
       
       {/* 状态信息栏 - 显示颜色数量和像素尺寸 */}
-      <div className="bg-gray-50 border-b border-gray-200 px-4 py-1.5">
+      <div className="bg-gray-50 border-b border-gray-200 px-4 py-1.5 flex items-center justify-between">
         <div className="text-sm text-gray-700 font-mono tracking-wide">
           <span className="font-medium">{availableColors.length}色</span>
           <span className="mx-3 text-gray-400">|</span>
           <span className="font-medium">{mappedPixelData ? `${mappedPixelData[0]?.length || 0}×${mappedPixelData.length}` : '0×0'}</span>
         </div>
+        {/* 点击格子的颜色信息 */}
+        {clickedCellColor && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-lg">
+            <div 
+              className="w-5 h-5 rounded border border-gray-300"
+              style={{ backgroundColor: clickedCellColor.hex }}
+            />
+            <span className="text-sm font-medium text-gray-700">
+              {clickedCellColor.key}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 当前颜色状态栏 - 仅在专心模式显示 */}
@@ -1240,6 +1315,17 @@ export default function FocusMode() {
           enableCelebration={focusState.enableCelebration}
           onEnableCelebrationChange={(enable: boolean) => setFocusState(prev => ({ ...prev, enableCelebration: enable }))}
           onClose={() => setFocusState(prev => ({ ...prev, showSettingsPanel: false }))}
+        />
+      )}
+
+      {/* 色板系统面板 */}
+      {showColorSystemPanel && (
+        <ColorSystemPanel
+          selectedColorSystem={selectedColorSystem}
+          customPalette={customPalette}
+          onColorSystemChange={setSelectedColorSystem}
+          onCustomPaletteChange={setCustomPalette}
+          onClose={() => setShowColorSystemPanel(false)}
         />
       )}
 
