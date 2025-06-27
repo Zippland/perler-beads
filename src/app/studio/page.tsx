@@ -30,6 +30,7 @@ import CompletionCard from '../../components/CompletionCard';
 import PreviewToolbar from '../../components/PreviewToolbar';
 import EditToolbar from '../../components/EditToolbar';
 import ColorSystemPanel from '../../components/ColorSystemPanel';
+import CanvasColorPanel from '../../components/CanvasColorPanel';
 import { getColorKeyByHex, ColorSystem, getMardToHexMapping, getAllHexValues } from '../../utils/colorSystemUtils';
 
 // 定义编辑模式类型
@@ -139,6 +140,11 @@ export default function FocusMode() {
   const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
   const [history, setHistory] = useState<MappedPixel[][][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  
+  // 去杂色模式状态
+  const [showCanvasColorPanel, setShowCanvasColorPanel] = useState(false);
+  const [canvasPalette, setCanvasPalette] = useState<Set<string>>(new Set());
+  const [removedColors, setRemovedColors] = useState<string[]>([]);
   
   // 计算状态
   const hasSelection = selectedCells.size > 0;
@@ -1011,6 +1017,148 @@ export default function FocusMode() {
     }
   }, [history, historyIndex]);
   
+  // 获取画布中的所有颜色信息
+  const getCanvasColors = useCallback(() => {
+    if (!mappedPixelData) return [];
+    
+    const colorCounts: { [hex: string]: number } = {};
+    
+    mappedPixelData.forEach(row => {
+      row.forEach(pixel => {
+        if (pixel.color && pixel.color !== 'transparent' && !pixel.isExternal) {
+          colorCounts[pixel.color] = (colorCounts[pixel.color] || 0) + 1;
+        }
+      });
+    });
+    
+    return Object.entries(colorCounts).map(([hex, count]) => ({
+      hex,
+      key: getColorKeyByHex(hex, selectedColorSystem),
+      count
+    }));
+  }, [mappedPixelData, selectedColorSystem]);
+  
+  // 去杂色：启动模式
+  const handleRemoveNoise = useCallback(() => {
+    if (!mappedPixelData) return;
+    
+    // 获取当前画布颜色
+    const canvasColors = getCanvasColors();
+    setCanvasPalette(new Set(canvasColors.map(c => c.hex)));
+    setRemovedColors([]); // 重置已移除颜色列表
+    setShowCanvasColorPanel(true);
+  }, [mappedPixelData, getCanvasColors]);
+  
+  // 去杂色：移除颜色
+  const handleRemoveCanvasColor = useCallback((hexToRemove: string) => {
+    if (!mappedPixelData) return;
+    
+    // 更新画布色板
+    const newCanvasPalette = new Set(canvasPalette);
+    newCanvasPalette.delete(hexToRemove);
+    setCanvasPalette(newCanvasPalette);
+    
+    // 添加到已移除颜色列表
+    setRemovedColors(prev => [...prev, hexToRemove]);
+    
+    // 保存历史
+    saveToHistory();
+    
+    // 获取剩余的颜色
+    const remainingColors = Array.from(newCanvasPalette);
+    
+    if (remainingColors.length === 0) {
+      console.warn('无法移除所有颜色');
+      return;
+    }
+    
+    // 创建新的像素数据
+    const newPixelData = mappedPixelData.map(row => 
+      row.map(pixel => {
+        if (pixel.color === hexToRemove && !pixel.isExternal) {
+          // 找到最接近的替换颜色
+          let closestColor = remainingColors[0];
+          let minDistance = Infinity;
+          
+          const removedRgb = hexToRgb(hexToRemove);
+          if (removedRgb) {
+            remainingColors.forEach(hex => {
+              const rgb = hexToRgb(hex);
+              if (rgb) {
+                const distance = colorDistance(removedRgb, rgb);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestColor = hex;
+                }
+              }
+            });
+          }
+          
+          return {
+            ...pixel,
+            color: closestColor,
+            key: closestColor
+          };
+        }
+        return pixel;
+      })
+    );
+    
+    setMappedPixelData(newPixelData);
+  }, [mappedPixelData, canvasPalette, saveToHistory]);
+  
+  // 去杂色：恢复颜色
+  const handleRestoreCanvasColor = useCallback((hexToRestore: string) => {
+    if (!mappedPixelData) return;
+    
+    // 从已移除列表中移除
+    setRemovedColors(prev => prev.filter(hex => hex !== hexToRestore));
+    
+    // 添加回画布色板
+    const newCanvasPalette = new Set(canvasPalette);
+    newCanvasPalette.add(hexToRestore);
+    setCanvasPalette(newCanvasPalette);
+    
+    // 保存历史
+    saveToHistory();
+    
+    // 重新计算整个画布的颜色映射
+    const allAvailableColors = Array.from(newCanvasPalette);
+    
+    const newPixelData = mappedPixelData.map(row => 
+      row.map(pixel => {
+        if (!pixel.isExternal && pixel.color !== 'transparent') {
+          // 为每个像素找到最接近的可用颜色
+          let closestColor = allAvailableColors[0];
+          let minDistance = Infinity;
+          
+          const pixelRgb = hexToRgb(pixel.color);
+          if (pixelRgb) {
+            allAvailableColors.forEach(hex => {
+              const rgb = hexToRgb(hex);
+              if (rgb) {
+                const distance = colorDistance(pixelRgb, rgb);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestColor = hex;
+                }
+              }
+            });
+          }
+          
+          return {
+            ...pixel,
+            color: closestColor,
+            key: closestColor
+          };
+        }
+        return pixel;
+      })
+    );
+    
+    setMappedPixelData(newPixelData);
+  }, [mappedPixelData, canvasPalette, saveToHistory]);
+  
   // 编辑模式：执行操作
   const handleEditOperation = useCallback((operation: 'fill' | 'clear' | 'invert') => {
     if (!mappedPixelData) return;
@@ -1274,19 +1422,27 @@ export default function FocusMode() {
       {/* 编辑模式工具栏 */}
       {focusState.editMode === 'edit' && (
         <EditToolbar
-          editTool={editTool}
-          hasSelection={hasSelection}
-          canUndo={canUndo}
-          canRedo={canRedo}
           selectedColor={selectedColor}
           availableColors={availableColors}
-          selectedCells={selectedCells}
-          onEditToolChange={setEditTool}
-          onEditOperation={handleEditOperation}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
+          onRemoveNoise={handleRemoveNoise}
+          onManualColoring={() => {
+            // TODO: 实现手动上色功能
+            console.log('手动上色功能');
+          }}
           onColorSelect={setSelectedColor}
           onShowColorPanel={() => setFocusState(prev => ({ ...prev, showColorPanel: true }))}
+        />
+      )}
+      
+      {/* 画布颜色面板 - 去杂色模式 */}
+      {showCanvasColorPanel && (
+        <CanvasColorPanel
+          canvasColors={getCanvasColors()}
+          removedColors={removedColors}
+          selectedColorSystem={selectedColorSystem}
+          onColorRemove={handleRemoveCanvasColor}
+          onColorRestore={handleRestoreCanvasColor}
+          onClose={() => setShowCanvasColorPanel(false)}
         />
       )}
       
