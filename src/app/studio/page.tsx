@@ -214,9 +214,11 @@ export default function FocusMode() {
         const aspectRatio = img.height / img.width;
         const M = Math.round(N * aspectRatio); // M是纵向（高度），按比例计算
 
-        // 根据自定义色板构建可用颜色
-        const activeBeadPalette: PaletteColor[] = Array.from(customPalette)
-          .map(hex => {
+        // 根据自定义色板构建可用颜色 - 直接从localStorage读取最新数据
+        const savedPalette = localStorage.getItem('customPalette');
+        const paletteData = savedPalette ? JSON.parse(savedPalette) : Array.from(getAllHexValues());
+        const activeBeadPalette: PaletteColor[] = paletteData
+          .map((hex: string) => {
             const rgb = hexToRgb(hex);
             if (!rgb) return null;
             return { key: hex, hex, rgb };

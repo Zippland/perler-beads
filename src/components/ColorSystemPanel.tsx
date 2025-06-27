@@ -279,9 +279,13 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                     <span className="font-medium text-gray-700">{groupKey}</span>
                     <div className="flex items-center gap-2 text-sm text-gray-500 ml-auto">
                       <span>{selectedInGroup}/{groupColors.length}</span>
-                      {selectedInGroup > 0 && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      )}
+                      <div className={`w-2 h-2 rounded-full ${
+                        selectedInGroup === 0 
+                          ? 'bg-red-500' 
+                          : selectedInGroup === groupColors.length 
+                            ? 'bg-green-500' 
+                            : 'bg-orange-500'
+                      }`}></div>
                     </div>
                   </button>
                   
