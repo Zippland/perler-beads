@@ -18,7 +18,6 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
   onClose,
   onSettingsChange
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
   const [tempCustomPalette, setTempCustomPalette] = useState<Set<string>>(new Set(customPalette));
   const [showColorSystemDropdown, setShowColorSystemDropdown] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -55,10 +54,7 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
     .filter(hex => {
       const colorKey = getColorKeyByHex(hex, selectedColorSystem);
       // 剔除色号为"-"的颜色（表示当前色号系统下不存在）
-      if (colorKey === '-') return false;
-      
-      return colorKey.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             hex.toLowerCase().includes(searchTerm.toLowerCase());
+      return colorKey !== '-';
     })
     .sort((a, b) => {
       const keyA = getColorKeyByHex(a, selectedColorSystem);
@@ -95,12 +91,12 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
     return naturalSort(a, b);
   });
 
-  // 初始化时默认全折叠
+  // 初始化时默认全折叠，切换色号系统时也全折叠
   React.useEffect(() => {
-    if (sortedGroupKeys.length > 0 && collapsedGroups.size === 0) {
+    if (sortedGroupKeys.length > 0) {
       setCollapsedGroups(new Set(sortedGroupKeys));
     }
-  }, [sortedGroupKeys.join(',')]);
+  }, [selectedColorSystem, sortedGroupKeys.join(',')]);
 
   // 分组操作函数
   const handleGroupSelectAll = (groupKey: string) => {
@@ -127,9 +123,14 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
       })
     );
     
-    onCustomPaletteChange(validColors);
+    // 更新localStorage
     localStorage.setItem('customPalette', JSON.stringify(Array.from(validColors)));
-    onSettingsChange?.(); // 触发画布刷新
+    
+    // 更新组件状态
+    onCustomPaletteChange(validColors);
+    
+    // 最后触发画布刷新（此时localStorage和状态都已更新）
+    onSettingsChange?.();
   };
 
   // 加载保存的自定义色板
@@ -175,14 +176,6 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
     setTempCustomPalette(newPalette);
   };
 
-  // 全选/全不选
-  const handleSelectAll = () => {
-    if (tempCustomPalette.size === allColors.length) {
-      setTempCustomPalette(new Set());
-    } else {
-      setTempCustomPalette(new Set(allColors));
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
@@ -209,6 +202,8 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       console.log('Switching to:', option.key);
+                      
+                      // 先更新色号系统
                       onColorSystemChange(option.key as ColorSystem);
                       localStorage.setItem('selectedColorSystem', option.key);
                       
@@ -221,7 +216,11 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                       );
                       setTempCustomPalette(validColors);
                       
-                      onSettingsChange?.();
+                      // 使用 setTimeout 确保状态更新后再触发画布刷新
+                      setTimeout(() => {
+                        onSettingsChange?.();
+                      }, 50);
+                      
                       setShowColorSystemDropdown(false);
                     }}
                     className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
@@ -250,24 +249,6 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
           </div>
         </div>
 
-        {/* 搜索栏 */}
-        <div className="p-4 border-b">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="搜索颜色..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleSelectAll}
-              className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-            >
-              {tempCustomPalette.size === allColors.length ? '清空' : '全选'}
-            </button>
-          </div>
-        </div>
 
         {/* 颜色网格 - 分组显示 */}
         <div className="flex-1 overflow-y-auto p-4">
@@ -371,7 +352,7 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
             onClick={handleSaveCustomPalette}
             className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
           >
-            保存设置
+            重新渲染
           </button>
         </div>
       </div>
