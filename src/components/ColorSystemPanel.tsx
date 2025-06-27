@@ -178,24 +178,24 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
 
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl h-[85vh] bg-white rounded-lg flex flex-col shadow-lg">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl h-[85vh] bg-white rounded-2xl flex flex-col shadow-2xl border border-gray-100">
         
         {/* 顶部栏 */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="relative color-system-dropdown">
             <button
               onClick={() => setShowColorSystemDropdown(!showColorSystemDropdown)}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
             >
-              <span className="font-medium">{selectedColorSystem}</span>
-              <svg className={`w-4 h-4 transition-transform ${showColorSystemDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="font-medium text-gray-700">{selectedColorSystem}</span>
+              <svg className={`w-4 h-4 transition-transform duration-200 text-gray-500 ${showColorSystemDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             
             {showColorSystemDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-20 min-w-[200px]">
+              <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-20 min-w-[200px] overflow-hidden backdrop-blur-sm">
                 {colorSystemOptions.map(option => (
                   <button
                     key={option.key}
@@ -223,8 +223,8 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                       
                       setShowColorSystemDropdown(false);
                     }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
-                      selectedColorSystem === option.key ? 'bg-gray-50 font-medium' : ''
+                    className={`w-full px-4 py-3 text-left text-sm hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                      selectedColorSystem === option.key ? 'bg-gradient-to-r from-blue-50 to-purple-50 font-medium text-blue-700' : 'text-gray-700'
                     }`}
                   >
                     {option.key} - {option.name}
@@ -234,15 +234,15 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-light text-gray-500 tracking-wide">
               {tempCustomPalette.size}/{allColors.length}
             </span>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded"
+              className="p-2.5 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 rounded-xl transition-all duration-200 group"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -251,7 +251,7 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
 
 
         {/* 颜色网格 - 分组显示 */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-6">
           {sortedGroupKeys.map(groupKey => {
             const groupColors = groupedColors[groupKey];
             const isCollapsed = collapsedGroups.has(groupKey);
@@ -260,7 +260,7 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
             return (
               <div key={groupKey} className="mb-6">
                 {/* 分组标题 */}
-                <div className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded">
+                <div className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded-lg">
                   <button
                     onClick={() => {
                       const newCollapsed = new Set(collapsedGroups);
@@ -271,9 +271,9 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                       }
                       setCollapsedGroups(newCollapsed);
                     }}
-                    className="flex items-center gap-2 flex-1 hover:bg-gray-100 p-1 rounded transition-colors"
+                    className="flex items-center gap-2 flex-1 hover:bg-white p-1 rounded transition-colors"
                   >
-                    <svg className={`w-4 h-4 transition-transform ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`w-4 h-4 transition-transform text-gray-400 ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                     <span className="font-medium text-gray-700">{groupKey}</span>
@@ -281,10 +281,10 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                       <span>{selectedInGroup}/{groupColors.length}</span>
                       <div className={`w-2 h-2 rounded-full ${
                         selectedInGroup === 0 
-                          ? 'bg-red-500' 
+                          ? 'bg-red-400' 
                           : selectedInGroup === groupColors.length 
-                            ? 'bg-green-500' 
-                            : 'bg-orange-500'
+                            ? 'bg-green-400' 
+                            : 'bg-orange-400'
                       }`}></div>
                     </div>
                   </button>
@@ -296,7 +296,7 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                         e.stopPropagation();
                         handleGroupSelectAll(groupKey);
                       }}
-                      className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+                      className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-600 rounded"
                       title="全选此组"
                     >
                       全选
@@ -306,7 +306,7 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                         e.stopPropagation();
                         handleGroupClear(groupKey);
                       }}
-                      className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                      className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-600 rounded"
                       title="清空此组"
                     >
                       清空
@@ -316,7 +316,7 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                 
                 {/* 颜色网格 */}
                 {!isCollapsed && (
-                  <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-14 lg:grid-cols-16 gap-3">
+                  <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-14 lg:grid-cols-16 gap-4">
                     {groupColors.map(hex => {
                       const colorKey = getColorKeyByHex(hex, selectedColorSystem);
                       const isSelected = tempCustomPalette.has(hex);
@@ -325,18 +325,18 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                         <div key={hex} className="flex flex-col items-center">
                           <button
                             onClick={() => toggleColor(hex)}
-                            className={`w-full aspect-square rounded border-2 transition-all ${
+                            className={`w-full aspect-square rounded-xl border-2 transition-all duration-200 transform hover:scale-105 ${
                               isSelected 
-                                ? 'border-blue-500 shadow-md' 
-                                : 'border-gray-200 hover:border-gray-400'
+                                ? 'border-blue-400 shadow-lg shadow-blue-200/50 ring-2 ring-blue-100' 
+                                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md'
                             }`}
                             style={{ backgroundColor: hex }}
                             title={`${colorKey} - ${hex}`}
                           />
-                          <span className={`text-xs mt-1 font-mono transition-colors ${
+                          <span className={`text-xs mt-2 font-mono transition-all duration-200 ${
                             isSelected 
-                              ? 'text-gray-800 font-medium' 
-                              : 'text-gray-400'
+                              ? 'text-gray-800 font-semibold' 
+                              : 'text-gray-400 font-medium'
                           }`}>
                             {colorKey}
                           </span>
@@ -351,12 +351,12 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
         </div>
 
         {/* 底部按钮 */}
-        <div className="p-4 border-t">
+        <div className="p-6 border-t border-gray-100">
           <button
             onClick={handleSaveCustomPalette}
-            className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+            className="w-full py-3.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium"
           >
-            重新渲染
+            保存设置
           </button>
         </div>
       </div>
