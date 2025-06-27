@@ -1357,6 +1357,7 @@ export default function FocusMode() {
           onColorSystemChange={setSelectedColorSystem}
           onCustomPaletteChange={setCustomPalette}
           onClose={() => setShowColorSystemPanel(false)}
+          onSettingsChange={regeneratePixelArt}
         />
       )}
 

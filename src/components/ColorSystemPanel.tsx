@@ -7,6 +7,7 @@ interface ColorSystemPanelProps {
   onColorSystemChange: (system: ColorSystem) => void;
   onCustomPaletteChange: (palette: Set<string>) => void;
   onClose: () => void;
+  onSettingsChange?: () => void; // 当设置改变时的回调，用于刷新画布
 }
 
 const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
@@ -14,26 +15,53 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
   customPalette,
   onColorSystemChange,
   onCustomPaletteChange,
-  onClose
+  onClose,
+  onSettingsChange
 }) => {
-  const [activeTab, setActiveTab] = useState<'system' | 'custom'>('system');
   const [searchTerm, setSearchTerm] = useState('');
   const [tempCustomPalette, setTempCustomPalette] = useState<Set<string>>(new Set(customPalette));
+  const [showColorSystemDropdown, setShowColorSystemDropdown] = useState(false);
   
   // 获取所有可用颜色
   const allColors = getAllHexValues();
   
-  // 过滤颜色
-  const filteredColors = allColors.filter(hex => {
-    const colorKey = getColorKeyByHex(hex, selectedColorSystem);
-    return colorKey.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           hex.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // 自然排序函数（支持数字排序）
+  const naturalSort = (a: string, b: string) => {
+    return a.localeCompare(b, undefined, { 
+      numeric: true, 
+      sensitivity: 'base' 
+    });
+  };
+
+  // 过滤和排序颜色
+  const filteredColors = allColors
+    .filter(hex => {
+      const colorKey = getColorKeyByHex(hex, selectedColorSystem);
+      // 剔除色号为"-"的颜色（表示当前色号系统下不存在）
+      if (colorKey === '-') return false;
+      
+      return colorKey.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             hex.toLowerCase().includes(searchTerm.toLowerCase());
+    })
+    .sort((a, b) => {
+      const keyA = getColorKeyByHex(a, selectedColorSystem);
+      const keyB = getColorKeyByHex(b, selectedColorSystem);
+      return naturalSort(keyA, keyB);
+    });
 
   // 保存自定义色板
   const handleSaveCustomPalette = () => {
-    onCustomPaletteChange(tempCustomPalette);
-    localStorage.setItem('customPalette', JSON.stringify(Array.from(tempCustomPalette)));
+    // 从色板中剔除在当前色号系统下不存在的颜色（色号为"-"）
+    const validColors = new Set(
+      Array.from(tempCustomPalette).filter(hex => {
+        const colorKey = getColorKeyByHex(hex, selectedColorSystem);
+        return colorKey !== '-';
+      })
+    );
+    
+    onCustomPaletteChange(validColors);
+    localStorage.setItem('customPalette', JSON.stringify(Array.from(validColors)));
+    onSettingsChange?.(); // 触发画布刷新
   };
 
   // 加载保存的自定义色板
@@ -49,6 +77,24 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
       }
     }
   }, [onCustomPaletteChange]);
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showColorSystemDropdown && !target.closest('.color-system-dropdown')) {
+        setShowColorSystemDropdown(false);
+      }
+    };
+
+    if (showColorSystemDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showColorSystemDropdown]);
 
   // 切换颜色选择
   const toggleColor = (hex: string) => {
@@ -71,165 +117,130 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl bg-white rounded-2xl max-h-[90vh] flex flex-col shadow-xl">
-        {/* 标题栏 */}
+    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl h-[85vh] bg-white rounded-lg flex flex-col shadow-lg">
+        
+        {/* 顶部栏 */}
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">色板设置</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* 标签页 */}
-        <div className="flex border-b">
-          <button
-            onClick={() => setActiveTab('system')}
-            className={`flex-1 py-3 px-4 font-medium transition-colors ${
-              activeTab === 'system' 
-                ? 'text-blue-600 border-b-2 border-blue-600' 
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            色号系统
-          </button>
-          <button
-            onClick={() => setActiveTab('custom')}
-            className={`flex-1 py-3 px-4 font-medium transition-colors ${
-              activeTab === 'custom' 
-                ? 'text-blue-600 border-b-2 border-blue-600' 
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            自定义色板
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-hidden flex flex-col">
-          {activeTab === 'system' ? (
-            /* 色号系统选择 */
-            <div className="p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">选择色号系统</h3>
-              <div className="space-y-2">
+          <div className="relative color-system-dropdown">
+            <button
+              onClick={() => setShowColorSystemDropdown(!showColorSystemDropdown)}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+            >
+              <span className="font-medium">{selectedColorSystem}</span>
+              <svg className={`w-4 h-4 transition-transform ${showColorSystemDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {showColorSystemDropdown && (
+              <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-20 min-w-[200px]">
                 {colorSystemOptions.map(option => (
-                  <label
+                  <button
                     key={option.key}
-                    className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log('Switching to:', option.key);
+                      onColorSystemChange(option.key as ColorSystem);
+                      localStorage.setItem('selectedColorSystem', option.key);
+                      
+                      // 切换色号系统时，从临时色板中剔除不存在的颜色
+                      const validColors = new Set(
+                        Array.from(tempCustomPalette).filter(hex => {
+                          const colorKey = getColorKeyByHex(hex, option.key as ColorSystem);
+                          return colorKey !== '-';
+                        })
+                      );
+                      setTempCustomPalette(validColors);
+                      
+                      onSettingsChange?.();
+                      setShowColorSystemDropdown(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
+                      selectedColorSystem === option.key ? 'bg-gray-50 font-medium' : ''
+                    }`}
                   >
-                    <input
-                      type="radio"
-                      name="colorSystem"
-                      value={option.key}
-                      checked={selectedColorSystem === option.key}
-                      onChange={() => {
-                        onColorSystemChange(option.key as ColorSystem);
-                        localStorage.setItem('selectedColorSystem', option.key);
-                      }}
-                      className="mr-3"
-                    />
-                    <span className="font-medium">{option.name}</span>
-                  </label>
+                    {option.key} - {option.name}
+                  </button>
                 ))}
               </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  当前选择：<span className="font-medium">{selectedColorSystem}</span>
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  所有颜色显示将使用此色号系统
-                </p>
-              </div>
-            </div>
-          ) : (
-            /* 自定义色板 */
-            <div className="flex-1 flex flex-col">
-              {/* 搜索和操作栏 */}
-              <div className="p-4 space-y-3">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="搜索颜色编号..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <svg 
-                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    已选择 {tempCustomPalette.size} / {allColors.length} 种颜色
-                  </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">
+              {tempCustomPalette.size}/{allColors.length}
+            </span>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* 搜索栏 */}
+        <div className="p-4 border-b">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="搜索颜色..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              onClick={handleSelectAll}
+              className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+            >
+              {tempCustomPalette.size === allColors.length ? '清空' : '全选'}
+            </button>
+          </div>
+        </div>
+
+        {/* 颜色网格 */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-14 lg:grid-cols-16 gap-3">
+            {filteredColors.map(hex => {
+              const colorKey = getColorKeyByHex(hex, selectedColorSystem);
+              const isSelected = tempCustomPalette.has(hex);
+              
+              return (
+                <div key={hex} className="flex flex-col items-center">
                   <button
-                    onClick={handleSelectAll}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    {tempCustomPalette.size === allColors.length ? '取消全选' : '全选'}
-                  </button>
+                    onClick={() => toggleColor(hex)}
+                    className={`w-full aspect-square rounded border-2 transition-all ${
+                      isSelected 
+                        ? 'border-blue-500 shadow-md' 
+                        : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                    style={{ backgroundColor: hex }}
+                    title={`${colorKey} - ${hex}`}
+                  />
+                  <span className={`text-xs mt-1 font-mono transition-colors ${
+                    isSelected 
+                      ? 'text-gray-800 font-medium' 
+                      : 'text-gray-400'
+                  }`}>
+                    {colorKey}
+                  </span>
                 </div>
-              </div>
+              );
+            })}
+          </div>
+        </div>
 
-              {/* 颜色网格 */}
-              <div className="flex-1 overflow-y-auto px-4 pb-4">
-                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
-                  {filteredColors.map(hex => {
-                    const colorKey = getColorKeyByHex(hex, selectedColorSystem);
-                    const isSelected = tempCustomPalette.has(hex);
-                    
-                    return (
-                      <button
-                        key={hex}
-                        onClick={() => toggleColor(hex)}
-                        className={`relative p-2 rounded-lg border-2 transition-all ${
-                          isSelected 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        title={`${colorKey} - ${hex}`}
-                      >
-                        <div
-                          className="w-full aspect-square rounded mb-1"
-                          style={{ backgroundColor: hex }}
-                        />
-                        <div className="text-xs text-center font-mono">
-                          {colorKey}
-                        </div>
-                        {isSelected && (
-                          <div className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 保存按钮 */}
-              <div className="p-4 border-t bg-gray-50">
-                <button
-                  onClick={handleSaveCustomPalette}
-                  className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  保存自定义色板
-                </button>
-              </div>
-            </div>
-          )}
+        {/* 底部按钮 */}
+        <div className="p-4 border-t">
+          <button
+            onClick={handleSaveCustomPalette}
+            className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+          >
+            保存设置
+          </button>
         </div>
       </div>
     </div>
