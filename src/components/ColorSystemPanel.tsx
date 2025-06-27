@@ -21,6 +21,7 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [tempCustomPalette, setTempCustomPalette] = useState<Set<string>>(new Set(customPalette));
   const [showColorSystemDropdown, setShowColorSystemDropdown] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   
   // 获取所有可用颜色
   const allColors = getAllHexValues();
@@ -33,7 +34,23 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
     });
   };
 
-  // 过滤和排序颜色
+  // 分组函数
+  const getGroupKey = (colorKey: string) => {
+    if (/^[A-Za-z]/.test(colorKey)) {
+      // 字母开头，按首字母分组
+      return colorKey.charAt(0).toUpperCase();
+    } else if (/^\d/.test(colorKey)) {
+      // 数字开头，按十位数分组
+      const num = parseInt(colorKey);
+      const groupStart = Math.floor(num / 10) * 10;
+      return `${groupStart}-${groupStart + 9}`;
+    } else {
+      // 其他字符开头
+      return '其他';
+    }
+  };
+
+  // 过滤和分组颜色
   const filteredColors = allColors
     .filter(hex => {
       const colorKey = getColorKeyByHex(hex, selectedColorSystem);
@@ -48,6 +65,57 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
       const keyB = getColorKeyByHex(b, selectedColorSystem);
       return naturalSort(keyA, keyB);
     });
+
+  // 按组分类
+  const groupedColors = filteredColors.reduce((groups, hex) => {
+    const colorKey = getColorKeyByHex(hex, selectedColorSystem);
+    const groupKey = getGroupKey(colorKey);
+    
+    if (!groups[groupKey]) {
+      groups[groupKey] = [];
+    }
+    groups[groupKey].push(hex);
+    
+    return groups;
+  }, {} as Record<string, string[]>);
+
+  // 按组键排序
+  const sortedGroupKeys = Object.keys(groupedColors).sort((a, b) => {
+    // 字母组优先，然后是数字组，最后是其他
+    const isLetterA = /^[A-Z]$/.test(a);
+    const isLetterB = /^[A-Z]$/.test(b);
+    const isNumberA = /^\d/.test(a);
+    const isNumberB = /^\d/.test(b);
+    
+    if (isLetterA && !isLetterB) return -1;
+    if (!isLetterA && isLetterB) return 1;
+    if (isNumberA && !isNumberB && !isLetterB) return -1;
+    if (!isNumberA && isNumberB && !isLetterA) return 1;
+    
+    return naturalSort(a, b);
+  });
+
+  // 初始化时默认全折叠
+  React.useEffect(() => {
+    if (sortedGroupKeys.length > 0 && collapsedGroups.size === 0) {
+      setCollapsedGroups(new Set(sortedGroupKeys));
+    }
+  }, [sortedGroupKeys.join(',')]);
+
+  // 分组操作函数
+  const handleGroupSelectAll = (groupKey: string) => {
+    const groupColors = groupedColors[groupKey];
+    const newPalette = new Set(tempCustomPalette);
+    groupColors.forEach(hex => newPalette.add(hex));
+    setTempCustomPalette(newPalette);
+  };
+
+  const handleGroupClear = (groupKey: string) => {
+    const groupColors = groupedColors[groupKey];
+    const newPalette = new Set(tempCustomPalette);
+    groupColors.forEach(hex => newPalette.delete(hex));
+    setTempCustomPalette(newPalette);
+  };
 
   // 保存自定义色板
   const handleSaveCustomPalette = () => {
@@ -201,36 +269,100 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
           </div>
         </div>
 
-        {/* 颜色网格 */}
+        {/* 颜色网格 - 分组显示 */}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-14 lg:grid-cols-16 gap-3">
-            {filteredColors.map(hex => {
-              const colorKey = getColorKeyByHex(hex, selectedColorSystem);
-              const isSelected = tempCustomPalette.has(hex);
-              
-              return (
-                <div key={hex} className="flex flex-col items-center">
+          {sortedGroupKeys.map(groupKey => {
+            const groupColors = groupedColors[groupKey];
+            const isCollapsed = collapsedGroups.has(groupKey);
+            const selectedInGroup = groupColors.filter(hex => tempCustomPalette.has(hex)).length;
+            
+            return (
+              <div key={groupKey} className="mb-6">
+                {/* 分组标题 */}
+                <div className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded">
                   <button
-                    onClick={() => toggleColor(hex)}
-                    className={`w-full aspect-square rounded border-2 transition-all ${
-                      isSelected 
-                        ? 'border-blue-500 shadow-md' 
-                        : 'border-gray-200 hover:border-gray-400'
-                    }`}
-                    style={{ backgroundColor: hex }}
-                    title={`${colorKey} - ${hex}`}
-                  />
-                  <span className={`text-xs mt-1 font-mono transition-colors ${
-                    isSelected 
-                      ? 'text-gray-800 font-medium' 
-                      : 'text-gray-400'
-                  }`}>
-                    {colorKey}
-                  </span>
+                    onClick={() => {
+                      const newCollapsed = new Set(collapsedGroups);
+                      if (isCollapsed) {
+                        newCollapsed.delete(groupKey);
+                      } else {
+                        newCollapsed.add(groupKey);
+                      }
+                      setCollapsedGroups(newCollapsed);
+                    }}
+                    className="flex items-center gap-2 flex-1 hover:bg-gray-100 p-1 rounded transition-colors"
+                  >
+                    <svg className={`w-4 h-4 transition-transform ${isCollapsed ? 'rotate-0' : 'rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="font-medium text-gray-700">{groupKey}</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-500 ml-auto">
+                      <span>{selectedInGroup}/{groupColors.length}</span>
+                      {selectedInGroup > 0 && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      )}
+                    </div>
+                  </button>
+                  
+                  {/* 一键操作按钮 */}
+                  <div className="flex gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGroupSelectAll(groupKey);
+                      }}
+                      className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+                      title="全选此组"
+                    >
+                      全选
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGroupClear(groupKey);
+                      }}
+                      className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                      title="清空此组"
+                    >
+                      清空
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+                
+                {/* 颜色网格 */}
+                {!isCollapsed && (
+                  <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-14 lg:grid-cols-16 gap-3">
+                    {groupColors.map(hex => {
+                      const colorKey = getColorKeyByHex(hex, selectedColorSystem);
+                      const isSelected = tempCustomPalette.has(hex);
+                      
+                      return (
+                        <div key={hex} className="flex flex-col items-center">
+                          <button
+                            onClick={() => toggleColor(hex)}
+                            className={`w-full aspect-square rounded border-2 transition-all ${
+                              isSelected 
+                                ? 'border-blue-500 shadow-md' 
+                                : 'border-gray-200 hover:border-gray-400'
+                            }`}
+                            style={{ backgroundColor: hex }}
+                            title={`${colorKey} - ${hex}`}
+                          />
+                          <span className={`text-xs mt-1 font-mono transition-colors ${
+                            isSelected 
+                              ? 'text-gray-800 font-medium' 
+                              : 'text-gray-400'
+                          }`}>
+                            {colorKey}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* 底部按钮 */}
