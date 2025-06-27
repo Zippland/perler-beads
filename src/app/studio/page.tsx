@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   MappedPixel, 
@@ -130,6 +130,7 @@ export default function FocusMode() {
   const [clickedCellColor, setClickedCellColor] = useState<{ hex: string; key: string } | null>(null);
   const [showColorSystemPanel, setShowColorSystemPanel] = useState(false);
   const [customPalette, setCustomPalette] = useState<Set<string>>(new Set(getAllHexValues()));
+  const clickedColorTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // 编辑模式状态
   const [editTool, setEditTool] = useState<'select' | 'wand'>('select');
@@ -436,12 +437,22 @@ export default function FocusMode() {
       const colorKey = getColorKeyByHex(cellColor, selectedColorSystem);
       setClickedCellColor({ hex: cellColor, key: colorKey });
       
+      // 清除之前的定时器
+      if (clickedColorTimerRef.current) {
+        clearTimeout(clickedColorTimerRef.current);
+      }
+      
       // 3秒后自动消失
-      setTimeout(() => {
+      clickedColorTimerRef.current = setTimeout(() => {
         setClickedCellColor(null);
+        clickedColorTimerRef.current = null;
       }, 3000);
     } else {
       setClickedCellColor(null);
+      if (clickedColorTimerRef.current) {
+        clearTimeout(clickedColorTimerRef.current);
+        clickedColorTimerRef.current = null;
+      }
     }
     
     // 专心模式：标记区域
@@ -1115,37 +1126,48 @@ export default function FocusMode() {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* 顶部导航栏 - 移动端优化 */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-3 py-2 flex items-center justify-between">
-        <button 
-          onClick={() => window.history.back()}
-          className="p-2 -ml-2 text-gray-600 active:bg-gray-100 rounded-lg"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        
-        {/* Logo 位置预留 */}
-        <div className="flex-1 flex items-center justify-center">
-          {/* TODO: 添加 Logo */}
+      <header className="bg-white shadow-sm border-b border-gray-200 px-3 py-2 relative">
+        <div className="flex items-center w-full">
+          {/* 左侧按钮组 */}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => window.history.back()}
+              className="p-2 -ml-2 text-gray-600 active:bg-gray-100 rounded-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            {/* 色板系统选择 - 精致小巧 */}
+            <button
+              onClick={() => setShowColorSystemPanel(true)}
+              className="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100/60 hover:bg-gray-100 rounded-md transition-all duration-200"
+            >
+              {selectedColorSystem}
+            </button>
+          </div>
+          
+          {/* 右侧按钮 */}
+          <div className="ml-auto">
+            <button 
+              onClick={() => setFocusState(prev => ({ ...prev, showSettingsPanel: true }))}
+              className="p-2 -mr-2 text-gray-600 active:bg-gray-100 rounded-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+            </button>
+          </div>
         </div>
         
-        {/* 色板系统选择 */}
-        <button
-          onClick={() => setShowColorSystemPanel(true)}
-          className="text-sm text-blue-600 hover:text-blue-700 font-medium mr-2"
-        >
-          {selectedColorSystem} ▼
-        </button>
-        
-        <button 
-          onClick={() => setFocusState(prev => ({ ...prev, showSettingsPanel: true }))}
-          className="p-2 -mr-2 text-gray-600 active:bg-gray-100 rounded-lg"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
-        </button>
+        {/* 绝对居中的标题 */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <h1 className="text-sm font-medium text-gray-800">
+            <span className="bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">七卡瓦</span>
+            <span className="text-gray-600 mx-1">拼豆底稿生成器</span>
+          </h1>
+        </div>
       </header>
       
       {/* 状态信息栏 - 显示颜色数量和像素尺寸 */}
@@ -1155,18 +1177,22 @@ export default function FocusMode() {
           <span className="mx-3 text-gray-400">|</span>
           <span className="font-medium">{mappedPixelData ? `${mappedPixelData[0]?.length || 0}×${mappedPixelData.length}` : '0×0'}</span>
         </div>
-        {/* 点击格子的颜色信息 */}
-        {clickedCellColor && (
-          <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-lg">
+        {/* 点击格子的颜色信息 - 始终渲染容器以避免布局跳变 */}
+        <div className="relative h-7 min-w-[80px]">
+          <div 
+            className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2 px-3 py-1 bg-gray-100/80 backdrop-blur-sm rounded-full transition-all duration-300 ${
+              clickedCellColor ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+            }`}
+          >
             <div 
-              className="w-5 h-5 rounded border border-gray-300"
-              style={{ backgroundColor: clickedCellColor.hex }}
+              className="w-4 h-4 rounded-full border border-gray-300/50 shadow-sm"
+              style={{ backgroundColor: clickedCellColor?.hex || 'transparent' }}
             />
             <span className="text-sm font-medium text-gray-700">
-              {clickedCellColor.key}
+              {clickedCellColor?.key || ''}
             </span>
           </div>
-        )}
+        </div>
       </div>
 
       {/* 当前颜色状态栏 - 仅在专心模式显示 */}

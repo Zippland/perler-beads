@@ -115,3 +115,4 @@ input[type="range"]:hover::-webkit-slider-thumb {
 input[type="range"]:hover::-moz-range-thumb {
   transform: scale(1.1);
 }
+
