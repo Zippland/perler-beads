@@ -214,12 +214,23 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
                           return colorKey !== '-';
                         })
                       );
+                      
+                      // 检查色板是否真的改变了
+                      const paletteChanged = validColors.size !== tempCustomPalette.size;
+                      
                       setTempCustomPalette(validColors);
                       
-                      // 使用 setTimeout 确保状态更新后再触发画布刷新
-                      setTimeout(() => {
-                        onSettingsChange?.();
-                      }, 50);
+                      // 只有在色板内容真的改变时才触发重新生成
+                      if (paletteChanged) {
+                        // 保存到 localStorage
+                        localStorage.setItem('customPalette', JSON.stringify(Array.from(validColors)));
+                        onCustomPaletteChange(validColors);
+                        
+                        // 使用 setTimeout 确保状态更新后再触发画布刷新
+                        setTimeout(() => {
+                          onSettingsChange?.();
+                        }, 50);
+                      }
                       
                       setShowColorSystemDropdown(false);
                     }}
