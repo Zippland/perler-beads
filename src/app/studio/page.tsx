@@ -32,6 +32,9 @@ import EditToolbar from '../../components/EditToolbar';
 import ColorSystemPanel from '../../components/ColorSystemPanel';
 import CanvasColorPanel from '../../components/CanvasColorPanel';
 import { getColorKeyByHex, ColorSystem, getMardToHexMapping, getAllHexValues } from '../../utils/colorSystemUtils';
+import DownloadSettingsModal from '../../components/DownloadSettingsModal';
+import { downloadImage } from '../../utils/imageDownloader';
+import { GridDownloadOptions } from '../../types/downloadTypes';
 
 // 定义编辑模式类型
 type EditMode = 'focus' | 'preview' | 'edit';
@@ -146,6 +149,17 @@ export default function FocusMode() {
   const [canvasPalette, setCanvasPalette] = useState<Set<string>>(new Set());
   const [removedColors, setRemovedColors] = useState<string[]>([]);
   
+  // 下载相关状态
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadOptions, setDownloadOptions] = useState<GridDownloadOptions>({
+    showGrid: true,
+    gridInterval: 10,
+    showCoordinates: true,
+    gridLineColor: '#555555',
+    includeStats: true,
+    exportCsv: false
+  });
+  
   // 计算状态
   const hasSelection = selectedCells.size > 0;
   const canUndo = historyIndex > 0;
@@ -229,7 +243,7 @@ export default function FocusMode() {
             if (!rgb) return null;
             return { key: hex, hex, rgb };
           })
-          .filter((color): color is PaletteColor => color !== null);
+          .filter((color: PaletteColor | null): color is PaletteColor => color !== null);
 
         // 获取备用颜色
         const fallbackColor = activeBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
@@ -741,7 +755,7 @@ export default function FocusMode() {
           if (!rgb) return null;
           return { key: hex, hex, rgb };
         })
-        .filter((color): color is PaletteColor => color !== null);
+        .filter((color: PaletteColor | null): color is PaletteColor => color !== null);
 
       // 获取备用颜色
       const fallbackColor = activeBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
@@ -1159,6 +1173,51 @@ export default function FocusMode() {
     setMappedPixelData(newPixelData);
   }, [mappedPixelData, canvasPalette, saveToHistory]);
   
+  // 处理下载
+  const handleDownload = useCallback(async (options?: GridDownloadOptions) => {
+    if (!mappedPixelData || !gridDimensions) return;
+    
+    // 使用传入的选项或默认选项
+    const finalOptions = options || downloadOptions;
+    
+    // 计算颜色统计
+    const colorCounts: { [key: string]: { count: number; color: string } } = {};
+    let totalBeadCount = 0;
+    
+    mappedPixelData.forEach(row => {
+      row.forEach(pixel => {
+        if (!pixel.isExternal && pixel.color !== 'transparent') {
+          const key = pixel.color;
+          if (!colorCounts[key]) {
+            colorCounts[key] = { count: 0, color: pixel.color };
+          }
+          colorCounts[key].count++;
+          totalBeadCount++;
+        }
+      });
+    });
+    
+    // 构建活动色板
+    const activeBeadPalette: PaletteColor[] = Array.from(customPalette)
+      .map(hex => {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return null;
+        return { key: hex, hex, rgb };
+      })
+      .filter((color): color is PaletteColor => color !== null);
+    
+    // 调用下载函数
+    await downloadImage({
+      mappedPixelData,
+      gridDimensions,
+      colorCounts,
+      totalBeadCount,
+      options: finalOptions,
+      activeBeadPalette,
+      selectedColorSystem
+    });
+  }, [mappedPixelData, gridDimensions, downloadOptions, customPalette, selectedColorSystem]);
+  
   // 编辑模式：执行操作
   const handleEditOperation = useCallback((operation: 'fill' | 'clear' | 'invert') => {
     if (!mappedPixelData) return;
@@ -1301,7 +1360,18 @@ export default function FocusMode() {
           </div>
           
           {/* 右侧按钮 */}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {/* 下载按钮 */}
+            <button 
+              onClick={() => setShowDownloadModal(true)}
+              className="p-2 text-gray-600 active:bg-gray-100 rounded-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
+            
+            {/* 设置按钮 */}
             <button 
               onClick={() => setFocusState(prev => ({ ...prev, showSettingsPanel: true }))}
               className="p-2 -mr-2 text-gray-600 active:bg-gray-100 rounded-lg"
@@ -1520,6 +1590,15 @@ export default function FocusMode() {
           onSettingsChange={regeneratePixelArt}
         />
       )}
+
+      {/* 下载设置模态框 */}
+      <DownloadSettingsModal
+        isOpen={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
+        options={downloadOptions}
+        onOptionsChange={setDownloadOptions}
+        onDownload={handleDownload}
+      />
 
       {/* 庆祝动画 */}
       <CelebrationAnimation
