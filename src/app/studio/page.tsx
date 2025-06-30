@@ -1067,6 +1067,11 @@ export default function FocusMode() {
   const handleRemoveCanvasColor = useCallback((hexToRemove: string) => {
     if (!mappedPixelData) return;
     
+    // 检查颜色是否已经被移除
+    if (removedColors.includes(hexToRemove)) {
+      return; // 已经移除过，不重复操作
+    }
+    
     // 更新画布色板
     const newCanvasPalette = new Set(canvasPalette);
     newCanvasPalette.delete(hexToRemove);
@@ -1145,11 +1150,16 @@ export default function FocusMode() {
     };
     
     img.src = imageSrc;
-  }, [mappedPixelData, canvasPalette, saveToHistory, gridDimensions, pixelationMode, colorMergeThreshold, removeBackground]);
+  }, [mappedPixelData, canvasPalette, saveToHistory, gridDimensions, pixelationMode, colorMergeThreshold, removeBackground, removedColors]);
   
   // 去杂色：恢复颜色
   const handleRestoreCanvasColor = useCallback((hexToRestore: string) => {
     if (!mappedPixelData) return;
+    
+    // 检查颜色是否在已移除列表中
+    if (!removedColors.includes(hexToRestore)) {
+      return; // 不在已移除列表中，不需要恢复
+    }
     
     // 从已移除列表中移除
     setRemovedColors(prev => prev.filter(hex => hex !== hexToRestore));
@@ -1351,7 +1361,7 @@ export default function FocusMode() {
     };
     
     img.src = imageSrc;
-  }, [mappedPixelData, canvasPalette, saveToHistory, gridDimensions, pixelationMode, colorMergeThreshold, removeBackground]);
+  }, [mappedPixelData, canvasPalette, saveToHistory, gridDimensions, pixelationMode, colorMergeThreshold, removeBackground, removedColors]);
   
   // 处理下载
   const handleDownload = useCallback(async (options?: GridDownloadOptions) => {
