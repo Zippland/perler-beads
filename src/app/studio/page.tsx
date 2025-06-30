@@ -31,7 +31,8 @@ import PreviewToolbar from '../../components/PreviewToolbar';
 import EditToolbar from '../../components/EditToolbar';
 import ColorSystemPanel from '../../components/ColorSystemPanel';
 import CanvasColorPanel from '../../components/CanvasColorPanel';
-import { getColorKeyByHex, ColorSystem, getMardToHexMapping, getAllHexValues } from '../../utils/colorSystemUtils';
+import ManualColoringPanel from '../../components/ManualColoringPanel';
+import { getColorKeyByHex, ColorSystem, getAllHexValues } from '../../utils/colorSystemUtils';
 import DownloadSettingsModal from '../../components/DownloadSettingsModal';
 import { downloadImage } from '../../utils/imageDownloader';
 import { GridDownloadOptions } from '../../types/downloadTypes';
@@ -137,7 +138,7 @@ export default function FocusMode() {
   const clickedColorTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // 编辑模式状态
-  const [editTool, setEditTool] = useState<'select' | 'wand'>('select');
+  const [editTool] = useState<'select' | 'wand'>('select');
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState<{ row: number; col: number } | null>(null);
@@ -148,6 +149,11 @@ export default function FocusMode() {
   const [showCanvasColorPanel, setShowCanvasColorPanel] = useState(false);
   const [canvasPalette, setCanvasPalette] = useState<Set<string>>(new Set());
   const [removedColors, setRemovedColors] = useState<string[]>([]);
+  
+  // 手动上色模式状态
+  const [showManualColoringPanel, setShowManualColoringPanel] = useState(false);
+  const [manualColoringTool, setManualColoringTool] = useState<'brush' | 'eraser'>('brush');
+  const [manualColoringColor, setManualColoringColor] = useState<string>('');
   
   // 下载相关状态
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -161,9 +167,9 @@ export default function FocusMode() {
   });
   
   // 计算状态
-  const hasSelection = selectedCells.size > 0;
-  const canUndo = historyIndex > 0;
-  const canRedo = historyIndex < history.length - 1;
+  // const hasSelection = selectedCells.size > 0;
+  // const canUndo = historyIndex > 0;
+  // const canRedo = historyIndex < history.length - 1;
 
   // 在客户端加载保存的设置
   useEffect(() => {
@@ -447,6 +453,28 @@ export default function FocusMode() {
     }));
   }, [calculateRecommendedRegion]);
 
+  // 编辑模式：保存历史记录
+  const saveToHistory = useCallback(() => {
+    if (!mappedPixelData) return;
+    
+    // 如果不在历史末尾，删除后面的历史
+    const newHistory = history.slice(0, historyIndex + 1);
+    
+    // 深拷贝当前状态
+    const currentState = mappedPixelData.map(row => row.map(pixel => ({ ...pixel })));
+    
+    // 添加到历史
+    newHistory.push(currentState);
+    
+    // 限制历史记录数量
+    if (newHistory.length > 50) {
+      newHistory.shift();
+    }
+    
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [mappedPixelData, history, historyIndex]);
+
   // 处理格子点击 - 根据不同模式执行不同操作
   const handleCellClick = useCallback((row: number, col: number) => {
     if (!mappedPixelData) return;
@@ -567,6 +595,52 @@ export default function FocusMode() {
       return;
     }
     
+    // 手动上色模式：直接修改颜色
+    if (showManualColoringPanel) {
+      // 保存历史（内联逻辑）
+      if (mappedPixelData) {
+        // 如果不在历史末尾，删除后面的历史
+        const newHistory = history.slice(0, historyIndex + 1);
+        
+        // 深拷贝当前状态
+        const currentState = mappedPixelData.map(row => row.map(pixel => ({ ...pixel })));
+        
+        // 添加到历史
+        newHistory.push(currentState);
+        
+        // 限制历史记录数量
+        if (newHistory.length > 50) {
+          newHistory.shift();
+        }
+        
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+      }
+      
+      const newPixelData = mappedPixelData.map(r => r.map(pixel => ({ ...pixel })));
+      
+      if (manualColoringTool === 'brush' && manualColoringColor) {
+        // 画笔模式：使用选中的颜色
+        newPixelData[row][col] = {
+          ...newPixelData[row][col],
+          color: manualColoringColor,
+          key: manualColoringColor,
+          isExternal: false
+        };
+      } else if (manualColoringTool === 'eraser') {
+        // 橡皮擦模式：设为透明
+        newPixelData[row][col] = {
+          ...newPixelData[row][col],
+          color: 'transparent',
+          key: 'transparent',
+          isExternal: true
+        };
+      }
+      
+      setMappedPixelData(newPixelData);
+      return;
+    }
+    
     // 编辑模式：处理选择
     if (focusState.editMode === 'edit') {
       if (editTool === 'select') {
@@ -603,7 +677,7 @@ export default function FocusMode() {
         setSelectedCells(newSelection);
       }
     }
-  }, [mappedPixelData, focusState, editTool, isSelecting, selectedColorSystem]);
+  }, [mappedPixelData, focusState, editTool, isSelecting, selectedColorSystem, showManualColoringPanel, manualColoringTool, manualColoringColor, saveToHistory]);
 
   // 处理颜色切换
   const handleColorChange = useCallback((color: string) => {
@@ -993,28 +1067,6 @@ export default function FocusMode() {
     img.src = imageSrc;
   }, [gridWidth, pixelationMode, colorMergeThreshold, removeBackground, selectedColor, selectedColorSystem, customPalette]);
   
-  // 编辑模式：保存历史记录
-  const saveToHistory = useCallback(() => {
-    if (!mappedPixelData) return;
-    
-    // 如果不在历史末尾，删除后面的历史
-    const newHistory = history.slice(0, historyIndex + 1);
-    
-    // 深拷贝当前状态
-    const currentState = mappedPixelData.map(row => row.map(pixel => ({ ...pixel })));
-    
-    // 添加到历史
-    newHistory.push(currentState);
-    
-    // 限制历史记录数量
-    if (newHistory.length > 50) {
-      newHistory.shift();
-    }
-    
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [mappedPixelData, history, historyIndex]);
-  
   // 编辑模式：撤销
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
@@ -1062,6 +1114,21 @@ export default function FocusMode() {
     setRemovedColors([]); // 重置已移除颜色列表
     setShowCanvasColorPanel(true);
   }, [mappedPixelData, getCanvasColors]);
+  
+  // 手动上色：启动模式
+  const handleManualColoring = useCallback(() => {
+    if (!mappedPixelData) return;
+    
+    // 获取当前画布颜色
+    const canvasColors = getCanvasColors();
+    
+    // 设置默认选中第一个颜色（如果有的话）
+    if (canvasColors.length > 0 && !manualColoringColor) {
+      setManualColoringColor(canvasColors[0].hex);
+    }
+    
+    setShowManualColoringPanel(true);
+  }, [mappedPixelData, getCanvasColors, manualColoringColor]);
   
   // 去杂色：移除颜色
   const handleRemoveCanvasColor = useCallback((hexToRemove: string) => {
@@ -1679,16 +1746,13 @@ export default function FocusMode() {
         />
       )}
       
-      {/* 编辑模式工具栏 - 仅在非去杂色模式时显示 */}
-      {focusState.editMode === 'edit' && !showCanvasColorPanel && (
+      {/* 编辑模式工具栏 - 仅在非去杂色和非手动上色模式时显示 */}
+      {focusState.editMode === 'edit' && !showCanvasColorPanel && !showManualColoringPanel && (
         <EditToolbar
           selectedColor={selectedColor}
           availableColors={availableColors}
           onRemoveNoise={handleRemoveNoise}
-          onManualColoring={() => {
-            // TODO: 实现手动上色功能
-            console.log('手动上色功能');
-          }}
+          onManualColoring={handleManualColoring}
           onColorSelect={setSelectedColor}
           onShowColorPanel={() => setFocusState(prev => ({ ...prev, showColorPanel: true }))}
         />
@@ -1706,8 +1770,21 @@ export default function FocusMode() {
         />
       )}
       
-      {/* 底部模式切换栏 - 去杂色模式时隐藏 */}
-      {!showCanvasColorPanel && (
+      {/* 手动上色面板 */}
+      {showManualColoringPanel && (
+        <ManualColoringPanel
+          canvasColors={getCanvasColors()}
+          selectedColorSystem={selectedColorSystem}
+          selectedTool={manualColoringTool}
+          selectedColor={manualColoringColor}
+          onToolChange={setManualColoringTool}
+          onColorSelect={setManualColoringColor}
+          onClose={() => setShowManualColoringPanel(false)}
+        />
+      )}
+      
+      {/* 底部模式切换栏 - 去杂色和手动上色模式时隐藏 */}
+      {!showCanvasColorPanel && !showManualColoringPanel && (
         <div className="bg-white border-t border-gray-200 px-4 py-3">
           <div className="flex bg-gray-100 rounded-lg p-1 max-w-md mx-auto">
             <button

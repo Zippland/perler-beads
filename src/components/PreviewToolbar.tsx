@@ -13,9 +13,9 @@ interface PreviewToolbarProps {
   colorMergeThreshold: number;
   pixelationMode: PixelationMode;
   removeBackground: boolean;
-  availableColors: ColorInfo[];
-  mappedPixelData: MappedPixel[][] | null;
-  isProcessing: boolean;
+  availableColors?: ColorInfo[];
+  mappedPixelData?: MappedPixel[][] | null;
+  isProcessing?: boolean;
   onGridWidthChange: (width: number) => void;
   onColorMergeThresholdChange: (threshold: number) => void;
   onPixelationModeChange: (mode: PixelationMode) => void;

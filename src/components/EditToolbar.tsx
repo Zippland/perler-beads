@@ -8,12 +8,12 @@ interface ColorInfo {
 }
 
 interface EditToolbarProps {
-  selectedColor: string;
-  availableColors: ColorInfo[];
+  selectedColor?: string;
+  availableColors?: ColorInfo[];
   onRemoveNoise: () => void;
   onManualColoring: () => void;
-  onColorSelect: (color: string) => void;
-  onShowColorPanel: () => void;
+  onColorSelect?: (color: string) => void;
+  onShowColorPanel?: () => void;
 }
 
 const EditToolbar: React.FC<EditToolbarProps> = ({
