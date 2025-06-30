@@ -8,6 +8,7 @@ interface ColorSystemPanelProps {
   onCustomPaletteChange: (palette: Set<string>) => void;
   onClose: () => void;
   onSettingsChange?: () => void; // 当设置改变时的回调，用于刷新画布
+  onSwitchToPreview?: () => void; // 切换到预览模式的回调
 }
 
 const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
@@ -16,7 +17,8 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
   onColorSystemChange,
   onCustomPaletteChange,
   onClose,
-  onSettingsChange
+  onSettingsChange,
+  onSwitchToPreview
 }) => {
   const [tempCustomPalette, setTempCustomPalette] = useState<Set<string>>(new Set(customPalette));
   const [showColorSystemDropdown, setShowColorSystemDropdown] = useState(false);
@@ -129,8 +131,17 @@ const ColorSystemPanel: React.FC<ColorSystemPanelProps> = ({
     // 更新组件状态
     onCustomPaletteChange(validColors);
     
-    // 最后触发画布刷新（此时localStorage和状态都已更新）
-    onSettingsChange?.();
+    // 1. 退出色板系统界面
+    onClose();
+    
+    // 2. 切换到预览模式
+    onSwitchToPreview?.();
+    
+    // 3. 重新生成像素图（使用新的色板设置）
+    // 这会触发regeneratePixelArt，使用预览模式的所有设置重新生成
+    setTimeout(() => {
+      onSettingsChange?.();
+    }, 100); // 稍微延迟确保状态更新完成
   };
 
   // 加载保存的自定义色板

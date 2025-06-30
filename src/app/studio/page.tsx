@@ -1078,48 +1078,74 @@ export default function FocusMode() {
     // 保存历史
     saveToHistory();
     
-    // 获取剩余的颜色
-    const remainingColors = Array.from(newCanvasPalette);
+    // 从原始图片重新生成，而不是从当前画布映射
+    const imageSrc = localStorage.getItem('focusMode_originalImage') || localStorage.getItem('uploadedImage');
+    if (!imageSrc || !gridDimensions) {
+      console.warn('未找到原始图片或网格尺寸，无法移除颜色');
+      return;
+    }
     
-    if (remainingColors.length === 0) {
+    if (newCanvasPalette.size === 0) {
       console.warn('无法移除所有颜色');
       return;
     }
     
-    // 创建新的像素数据
-    const newPixelData = mappedPixelData.map(row => 
-      row.map(pixel => {
-        if (pixel.color === hexToRemove && !pixel.isExternal) {
-          // 找到最接近的替换颜色
-          let closestColor = remainingColors[0];
-          let minDistance = Infinity;
-          
-          const removedRgb = hexToRgb(hexToRemove);
-          if (removedRgb) {
-            remainingColors.forEach(hex => {
-              const rgb = hexToRgb(hex);
-              if (rgb) {
-                const distance = colorDistance(removedRgb, rgb);
-                if (distance < minDistance) {
-                  minDistance = distance;
-                  closestColor = hex;
-                }
-              }
-            });
-          }
-          
-          return {
-            ...pixel,
-            color: closestColor,
-            key: closestColor
-          };
-        }
-        return pixel;
-      })
-    );
+    setIsProcessing(true);
     
-    setMappedPixelData(newPixelData);
-  }, [mappedPixelData, canvasPalette, saveToHistory]);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setIsProcessing(false);
+        return;
+      }
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const { N, M } = gridDimensions;
+      
+      // 构建可用色板：使用画布色板（排除已移除的颜色）
+      const availableColorsArray = Array.from(newCanvasPalette);
+      const activeBeadPalette: PaletteColor[] = availableColorsArray
+        .map(hex => {
+          const rgb = hexToRgb(hex);
+          if (!rgb) return null;
+          return { key: hex, hex, rgb };
+        })
+        .filter((color): color is PaletteColor => color !== null);
+
+      // 获取备用颜色
+      const fallbackColor = activeBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
+
+      // 从原始图片重新计算像素网格
+      const pixelData = calculatePixelGrid(
+        ctx,
+        img.width,
+        img.height,
+        N,
+        M,
+        activeBeadPalette,
+        pixelationMode,
+        fallbackColor
+      );
+
+      // 应用后处理逻辑（颜色合并和背景移除）
+      // 这里复用与handleRestoreCanvasColor相同的逻辑
+      
+      setMappedPixelData(pixelData);
+      setIsProcessing(false);
+    };
+    
+    img.onerror = () => {
+      console.error('加载原始图片失败');
+      setIsProcessing(false);
+    };
+    
+    img.src = imageSrc;
+  }, [mappedPixelData, canvasPalette, saveToHistory, gridDimensions, pixelationMode, colorMergeThreshold, removeBackground]);
   
   // 去杂色：恢复颜色
   const handleRestoreCanvasColor = useCallback((hexToRestore: string) => {
@@ -1136,42 +1162,196 @@ export default function FocusMode() {
     // 保存历史
     saveToHistory();
     
-    // 重新计算整个画布的颜色映射
-    const allAvailableColors = Array.from(newCanvasPalette);
+    // 重要：从原始图片重新生成，而不是从当前画布映射
+    // 获取原始图片
+    const imageSrc = localStorage.getItem('focusMode_originalImage') || localStorage.getItem('uploadedImage');
+    if (!imageSrc || !gridDimensions) {
+      console.warn('未找到原始图片或网格尺寸，无法恢复颜色');
+      return;
+    }
     
-    const newPixelData = mappedPixelData.map(row => 
-      row.map(pixel => {
-        if (!pixel.isExternal && pixel.color !== 'transparent') {
-          // 为每个像素找到最接近的可用颜色
-          let closestColor = allAvailableColors[0];
-          let minDistance = Infinity;
-          
-          const pixelRgb = hexToRgb(pixel.color);
-          if (pixelRgb) {
-            allAvailableColors.forEach(hex => {
-              const rgb = hexToRgb(hex);
-              if (rgb) {
-                const distance = colorDistance(pixelRgb, rgb);
-                if (distance < minDistance) {
-                  minDistance = distance;
-                  closestColor = hex;
+    setIsProcessing(true);
+    
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setIsProcessing(false);
+        return;
+      }
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const { N, M } = gridDimensions;
+      
+      // 构建可用色板：使用画布色板（包含恢复的颜色）
+      const availableColorsArray = Array.from(newCanvasPalette);
+      const activeBeadPalette: PaletteColor[] = availableColorsArray
+        .map(hex => {
+          const rgb = hexToRgb(hex);
+          if (!rgb) return null;
+          return { key: hex, hex, rgb };
+        })
+        .filter((color): color is PaletteColor => color !== null);
+
+      // 获取备用颜色
+      const fallbackColor = activeBeadPalette[0] || { key: '#000000', hex: '#000000', rgb: { r: 0, g: 0, b: 0 } };
+
+      // 从原始图片重新计算像素网格
+      const pixelData = calculatePixelGrid(
+        ctx,
+        img.width,
+        img.height,
+        N,
+        M,
+        activeBeadPalette,
+        pixelationMode,
+        fallbackColor
+      );
+
+      // 应用颜色合并（如果有设置）
+      if (colorMergeThreshold > 0) {
+        // 首先统计所有颜色的使用次数
+        const colorCounts: { [key: string]: { count: number; rgb: RgbColor } } = {};
+        
+        pixelData.forEach(row => {
+          row.forEach(pixel => {
+            if (pixel.key && pixel.key !== 'transparent' && !pixel.isExternal) {
+              if (!colorCounts[pixel.color]) {
+                const rgb = hexToRgb(pixel.color);
+                if (rgb) {
+                  colorCounts[pixel.color] = { count: 0, rgb };
                 }
               }
-            });
+              if (colorCounts[pixel.color]) {
+                colorCounts[pixel.color].count++;
+              }
+            }
+          });
+        });
+
+        // 按使用量排序，使用量少的优先合并
+        const sortedColors = Object.entries(colorCounts).sort((a, b) => a[1].count - b[1].count);
+        
+        const mergedColors = new Map<string, string>();
+        
+        for (const [color, data] of sortedColors) {
+          if (mergedColors.has(color)) continue;
+          
+          const bestTarget = sortedColors.find(([targetColor, targetData]) => {
+            if (targetColor === color || mergedColors.has(targetColor)) return false;
+            const distance = colorDistance(data.rgb, targetData.rgb);
+            return distance <= colorMergeThreshold;
+          });
+          
+          if (bestTarget) {
+            mergedColors.set(color, bestTarget[0]);
+          }
+        }
+        
+        // 应用合并结果到像素数据
+        pixelData.forEach(row => {
+          row.forEach(pixel => {
+            if (pixel.color && mergedColors.has(pixel.color)) {
+              const targetColor = mergedColors.get(pixel.color)!;
+              pixel.color = targetColor;
+              pixel.key = targetColor;
+            }
+          });
+        });
+      }
+
+      // 应用背景移除（如果有设置）
+      if (removeBackground) {
+        const rows = pixelData.length;
+        const cols = pixelData[0]?.length || 0;
+        
+        if (rows > 0 && cols > 0) {
+          // 统计边缘颜色
+          const edgeColors: { [color: string]: number } = {};
+          
+          // 上下边缘
+          for (let x = 0; x < cols; x++) {
+            const topColor = pixelData[0][x].color;
+            const bottomColor = pixelData[rows - 1][x].color;
+            if (topColor) edgeColors[topColor] = (edgeColors[topColor] || 0) + 1;
+            if (bottomColor) edgeColors[bottomColor] = (edgeColors[bottomColor] || 0) + 1;
           }
           
-          return {
-            ...pixel,
-            color: closestColor,
-            key: closestColor
+          // 左右边缘
+          for (let y = 0; y < rows; y++) {
+            const leftColor = pixelData[y][0].color;
+            const rightColor = pixelData[y][cols - 1].color;
+            if (leftColor) edgeColors[leftColor] = (edgeColors[leftColor] || 0) + 1;
+            if (rightColor) edgeColors[rightColor] = (edgeColors[rightColor] || 0) + 1;
+          }
+          
+          // 找到最常见的边缘颜色
+          const mostCommonEdgeColor = Object.entries(edgeColors).reduce((a, b) => 
+            b[1] > a[1] ? b : a
+          )[0];
+          
+          // 洪水填充算法
+          const visited = new Set<string>();
+          
+          const floodFill = (startY: number, startX: number, targetColor: string) => {
+            const queue: [number, number][] = [[startY, startX]];
+            
+            while (queue.length > 0) {
+              const [y, x] = queue.shift()!;
+              const key = `${y},${x}`;
+              
+              if (y < 0 || y >= rows || x < 0 || x >= cols || visited.has(key)) {
+                continue;
+              }
+              
+              visited.add(key);
+              
+              if (pixelData[y][x].color !== targetColor) {
+                continue;
+              }
+              
+              pixelData[y][x].isExternal = true;
+              
+              queue.push([y - 1, x], [y + 1, x], [y, x - 1], [y, x + 1]);
+            }
           };
+          
+          // 从所有边缘开始洪水填充
+          for (let x = 0; x < cols; x++) {
+            if (pixelData[0][x].color === mostCommonEdgeColor && !pixelData[0][x].isExternal) {
+              floodFill(0, x, mostCommonEdgeColor);
+            }
+            if (pixelData[rows - 1][x].color === mostCommonEdgeColor && !pixelData[rows - 1][x].isExternal) {
+              floodFill(rows - 1, x, mostCommonEdgeColor);
+            }
+          }
+          
+          for (let y = 0; y < rows; y++) {
+            if (pixelData[y][0].color === mostCommonEdgeColor && !pixelData[y][0].isExternal) {
+              floodFill(y, 0, mostCommonEdgeColor);
+            }
+            if (pixelData[y][cols - 1].color === mostCommonEdgeColor && !pixelData[y][cols - 1].isExternal) {
+              floodFill(y, cols - 1, mostCommonEdgeColor);
+            }
+          }
         }
-        return pixel;
-      })
-    );
+      }
+
+      setMappedPixelData(pixelData);
+      setIsProcessing(false);
+    };
     
-    setMappedPixelData(newPixelData);
-  }, [mappedPixelData, canvasPalette, saveToHistory]);
+    img.onerror = () => {
+      console.error('加载原始图片失败');
+      setIsProcessing(false);
+    };
+    
+    img.src = imageSrc;
+  }, [mappedPixelData, canvasPalette, saveToHistory, gridDimensions, pixelationMode, colorMergeThreshold, removeBackground]);
   
   // 处理下载
   const handleDownload = useCallback(async (options?: GridDownloadOptions) => {
@@ -1489,8 +1669,8 @@ export default function FocusMode() {
         />
       )}
       
-      {/* 编辑模式工具栏 */}
-      {focusState.editMode === 'edit' && (
+      {/* 编辑模式工具栏 - 仅在非去杂色模式时显示 */}
+      {focusState.editMode === 'edit' && !showCanvasColorPanel && (
         <EditToolbar
           selectedColor={selectedColor}
           availableColors={availableColors}
@@ -1516,41 +1696,43 @@ export default function FocusMode() {
         />
       )}
       
-      {/* 底部模式切换栏 */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3">
-        <div className="flex bg-gray-100 rounded-lg p-1 max-w-md mx-auto">
-          <button
-            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'preview' }))}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              focusState.editMode === 'preview'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            预览
-          </button>
-          <button
-            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'edit' }))}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              focusState.editMode === 'edit'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            编辑
-          </button>
-          <button
-            onClick={() => setFocusState(prev => ({ ...prev, editMode: 'focus' }))}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              focusState.editMode === 'focus'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            专心
-          </button>
+      {/* 底部模式切换栏 - 去杂色模式时隐藏 */}
+      {!showCanvasColorPanel && (
+        <div className="bg-white border-t border-gray-200 px-4 py-3">
+          <div className="flex bg-gray-100 rounded-lg p-1 max-w-md mx-auto">
+            <button
+              onClick={() => setFocusState(prev => ({ ...prev, editMode: 'preview' }))}
+              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                focusState.editMode === 'preview'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              预览
+            </button>
+            <button
+              onClick={() => setFocusState(prev => ({ ...prev, editMode: 'edit' }))}
+              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                focusState.editMode === 'edit'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              编辑
+            </button>
+            <button
+              onClick={() => setFocusState(prev => ({ ...prev, editMode: 'focus' }))}
+              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                focusState.editMode === 'focus'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              专心
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 颜色选择面板 */}
       {focusState.showColorPanel && (
@@ -1588,6 +1770,7 @@ export default function FocusMode() {
           onCustomPaletteChange={setCustomPalette}
           onClose={() => setShowColorSystemPanel(false)}
           onSettingsChange={regeneratePixelArt}
+          onSwitchToPreview={() => setFocusState(prev => ({ ...prev, editMode: 'preview' }))}
         />
       )}
 
