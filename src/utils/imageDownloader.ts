@@ -314,7 +314,7 @@ export async function downloadImage({
       
       // 标题和页脚高度
       const titleHeight = 40; // 标题和分隔线的总高度
-      const footerHeight = 40; // 总计部分的高度
+      const footerHeight = 80; // 增加总计部分的高度，包含背景和水印
       
       // 计算统计区域的总高度 - 需要包含顶部间距
       statsHeight = titleHeight + (numRows * statsRowHeight) + footerHeight + (statsPadding * 2) + statsTopMargin;
@@ -677,18 +677,28 @@ export async function downloadImage({
       const itemWidth = Math.floor(availableStatsWidth / renderNumColumns);
       
       // 绘制统计区域标题
-      ctx.fillStyle = '#333333';
-      ctx.font = `bold ${Math.max(16, statsFontSize)}px sans-serif`;
+      const titleFontSizeStats = Math.max(18, Math.floor(statsFontSize * 1.2));
+      ctx.fillStyle = '#1F2937';
+      ctx.font = `600 ${titleFontSizeStats}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'left';
+      ctx.textBaseline = 'top'; // 标题使用顶部对齐
+      ctx.fillText('颜色统计', statsPadding, statsY);
       
-      // 绘制分隔线
-      ctx.strokeStyle = '#DDDDDD';
+      // 绘制优雅的分隔线 - 渐变效果
+      const gradientLine = ctx.createLinearGradient(statsPadding, 0, downloadWidth - statsPadding, 0);
+      gradientLine.addColorStop(0, 'rgba(229, 231, 235, 0)');
+      gradientLine.addColorStop(0.1, 'rgba(229, 231, 235, 1)');
+      gradientLine.addColorStop(0.9, 'rgba(229, 231, 235, 1)');
+      gradientLine.addColorStop(1, 'rgba(229, 231, 235, 0)');
+      
+      ctx.strokeStyle = gradientLine;
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(statsPadding, statsY + 20);
-      ctx.lineTo(downloadWidth - statsPadding, statsY + 20);
+      ctx.moveTo(statsPadding, statsY + 25);
+      ctx.lineTo(downloadWidth - statsPadding, statsY + 25);
       ctx.stroke();
       
-      const titleHeight = 30; // 标题和分隔线的总高度
+      const titleHeight = 40; // 增加标题高度以适应新的设计
       // 根据色块大小动态调整行高
       const statsRowHeight = Math.max(swatchSize + 8, 25); // 确保行高足够放下色块和文字
       
@@ -709,39 +719,101 @@ export async function downloadImage({
         
         const cellData = colorCounts[key];
         
-        // 绘制色块
+        // 为每个颜色条目创建一个容器区域
+        const containerPadding = 8;
+        const containerWidth = itemWidth - 20; // 留出间距
+        const containerX = itemX + 10;
+        
+        // 绘制容器背景 - 轻微的背景色
+        ctx.fillStyle = index % 2 === 0 ? '#F9FAFB' : '#FFFFFF'; // 交替背景色
+        ctx.beginPath();
+        ctx.roundRect(
+          containerX - containerPadding,
+          rowY - (swatchSize / 2) - containerPadding/2,
+          containerWidth,
+          swatchSize + containerPadding,
+          4
+        );
+        ctx.fill();
+        
+        // 绘制色块 - 带圆角
         ctx.fillStyle = cellData.color;
-        ctx.strokeStyle = '#CCCCCC';
-        ctx.fillRect(itemX, rowY - (swatchSize / 2), swatchSize, swatchSize);
-        ctx.strokeRect(itemX + 0.5, rowY - (swatchSize / 2) + 0.5, swatchSize - 1, swatchSize - 1);
+        ctx.strokeStyle = '#E5E7EB'; // 更柔和的边框
+        ctx.beginPath();
+        ctx.roundRect(containerX, rowY - (swatchSize / 2), swatchSize, swatchSize, 3);
+        ctx.fill();
+        ctx.stroke();
         
-        // 绘制色号
-        ctx.fillStyle = '#333333';
+        // 绘制色号 - 使用中等字重
+        ctx.fillStyle = '#374151'; // 深灰色
+        ctx.font = `500 ${statsFontSize}px system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'left';
-        ctx.fillText(getColorKeyByHex(key, selectedColorSystem), itemX + swatchSize + 5, rowY);
+        ctx.textBaseline = 'middle'; // 确保文字垂直居中
+        const colorKeyText = getColorKeyByHex(key, selectedColorSystem);
+        ctx.fillText(colorKeyText, containerX + swatchSize + 10, rowY);
         
-        // 绘制数量 - 在每个项目的右侧
+        // 计算分隔符位置 - 在色号和数量之间
+        const keyWidth = ctx.measureText(colorKeyText).width;
+        const separatorX = containerX + swatchSize + 15 + keyWidth;
+        
+        // 绘制优雅的分隔符（中点或短线）
+        ctx.fillStyle = '#D1D5DB';
+        ctx.font = `400 ${statsFontSize}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle'; // 确保分隔符垂直居中
+        ctx.fillText('·', separatorX, rowY);
+        
+        // 绘制数量 - 使用不同的样式
         const countText = `${cellData.count} 颗`;
-        ctx.textAlign = 'right';
+        ctx.fillStyle = '#6B7280'; // 中灰色，区分色号
+        ctx.font = `400 ${statsFontSize}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle'; // 确保文字垂直居中
+        ctx.fillText(countText, separatorX + 10, rowY);
         
-        // 根据列数计算数字的位置
-        // 如果只有一列，就靠右绘制
-        if (renderNumColumns === 1) {
-          ctx.fillText(countText, downloadWidth - statsPadding, rowY);
-        } else {
-          // 多列时，在每个单元格右侧偏内绘制
-          ctx.fillText(countText, itemX + itemWidth - 10, rowY);
+        // 如果是多列布局，在右侧添加细微的分隔线
+        if (renderNumColumns > 1 && colIndex < renderNumColumns - 1) {
+          ctx.strokeStyle = '#F3F4F6';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(containerX + containerWidth + 10, rowY - swatchSize);
+          ctx.lineTo(containerX + containerWidth + 10, rowY + swatchSize);
+          ctx.stroke();
         }
       });
       
       // 计算实际需要的行数
       const numRows = Math.ceil(colorKeys.length / renderNumColumns);
       
-      // 绘制总量
-      const totalY = statsY + titleHeight + (numRows * statsRowHeight) + 10;
-      ctx.font = `bold ${statsFontSize}px sans-serif`;
+      // 绘制总量 - 设计感的总计栏
+      const totalY = statsY + titleHeight + (numRows * statsRowHeight) + 20;
+      
+      // 总计背景
+      const totalBgHeight = 36;
+      ctx.fillStyle = '#F3F4F6';
+      ctx.beginPath();
+      ctx.roundRect(
+        statsPadding,
+        totalY - totalBgHeight/2 - 8,
+        downloadWidth - statsPadding * 2,
+        totalBgHeight,
+        6
+      );
+      ctx.fill();
+      
+      // 总计文字
+      ctx.fillStyle = '#1F2937';
+      ctx.font = `600 ${Math.max(16, statsFontSize + 2)}px system-ui, -apple-system, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle'; // 确保文字垂直居中
+      ctx.fillText('总计', statsPadding + 15, totalY);
+      
+      // 总数量 - 突出显示
+      ctx.fillStyle = '#6366F1'; // 使用品牌色
+      ctx.font = `700 ${Math.max(18, statsFontSize + 4)}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'right';
-      ctx.fillText(`总计: ${totalBeadCount} 颗`, downloadWidth - statsPadding, totalY);
+      ctx.textBaseline = 'middle'; // 确保文字垂直居中
+      ctx.fillText(`${totalBeadCount} 颗`, downloadWidth - statsPadding - 15, totalY);
       
       // 统计区域水印 - 第三重保护，清晰明显
       const statsWatermarkFontSize = Math.max(10, Math.floor(statsFontSize * 0.7));
@@ -753,7 +825,7 @@ export async function downloadImage({
       const statsTextHeight = statsWatermarkFontSize;
       
       const statsWatermarkX = statsPadding;
-      const statsWatermarkY = totalY + 20;
+      const statsWatermarkY = totalY + totalBgHeight/2 + 15;
       
       // 统计区域水印背景
       const statsBgPadding = 5;
@@ -780,7 +852,7 @@ export async function downloadImage({
       ctx.fillText(statsWatermarkText, statsWatermarkX, statsWatermarkY);
       
       // 更新统计区域高度的计算 - 需要包含新增的顶部间距
-      const footerHeight = 30; // 总计部分高度
+      const footerHeight = 80; // 与上面的计算保持一致
       statsHeight = titleHeight + (numRows * statsRowHeight) + footerHeight + (statsPadding * 2) + statsTopMargin;
     }
 
