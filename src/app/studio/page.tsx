@@ -1607,13 +1607,15 @@ export default function FocusMode() {
               </svg>
             </button>
             
-            {/* 色板系统选择 - 精致小巧 */}
-            <button
-              onClick={() => setShowColorSystemPanel(true)}
-              className="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100/60 hover:bg-gray-100 rounded-md transition-all duration-200"
-            >
-              {selectedColorSystem}
-            </button>
+            {/* 色板系统选择 - 精致小巧，在去杂色和手动上色模式时隐藏 */}
+            {!showCanvasColorPanel && !showManualColoringPanel && (
+              <button
+                onClick={() => setShowColorSystemPanel(true)}
+                className="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100/60 hover:bg-gray-100 rounded-md transition-all duration-200"
+              >
+                {selectedColorSystem}
+              </button>
+            )}
           </div>
           
           {/* 右侧按钮 */}
