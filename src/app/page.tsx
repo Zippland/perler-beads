@@ -1944,8 +1944,31 @@ export default function Home() {
             让像素创意属于每一个人
           </p>
           
+          {/* 新版本链接 - 内测版本提示 */}
+          <div className="mt-4 flex items-center justify-center">
+            <div className="flex items-center gap-3 px-3 py-2 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-lg border border-orange-200 dark:border-orange-700 shadow-sm">
+              <span className="relative inline-flex items-center">
+                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-orange-800 dark:text-orange-200 bg-orange-100 dark:bg-orange-800/30">
+                  🧪 内测版本
+                </span>
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full animate-ping"></span>
+              </span>
+              <a 
+                href="https://perlerbeadsnew.zippland.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="inline-flex items-center text-xs font-medium text-orange-700 dark:text-orange-300 hover:text-orange-900 dark:hover:text-orange-100 transition-colors duration-200 hover:underline"
+              >
+                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                体验新功能
+              </a>
+            </div>
+          </div>
+
           {/* 添加小红书交流群链接 */}
-          <div className="mt-8 flex flex-col items-center justify-center space-y-2">
+          <div className="mt-6 flex flex-col items-center justify-center space-y-2">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
               发布平台请标注来源或保留图片水印及标识
             </p>
