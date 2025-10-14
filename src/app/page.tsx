@@ -1944,32 +1944,12 @@ export default function Home() {
             让像素创意属于每一个人
           </p>
           
-          {/* 新版本链接 - 内测版本提示 */}
-          <div className="mt-4 flex items-center justify-center">
-            <div className="flex items-center gap-3 px-3 py-2 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-lg border border-orange-200 dark:border-orange-700 shadow-sm">
-              <span className="relative inline-flex items-center">
-                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-orange-800 dark:text-orange-200 bg-orange-100 dark:bg-orange-800/30">
-                  🧪 内测版本
-                </span>
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full animate-ping"></span>
-              </span>
-              <a 
-                href="https://perlerbeadsnew.zippland.com" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="inline-flex items-center text-xs font-medium text-orange-700 dark:text-orange-300 hover:text-orange-900 dark:hover:text-orange-100 transition-colors duration-200 hover:underline"
-              >
-                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                体验新功能
-              </a>
-            </div>
-          </div>
-
           {/* 添加小红书交流群链接 */}
           <div className="mt-6 flex flex-col items-center justify-center space-y-2">
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+            <p className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-xs text-gray-600 dark:text-gray-200 font-semibold">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-amber-500 dark:text-amber-300">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-11.707a1 1 0 00-1.414 0l-3 3a1 1 0 101.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414l-3-3z" clipRule="evenodd" />
+              </svg>
               发布平台请标注来源或保留图片水印及标识
             </p>
             <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
@@ -1981,6 +1961,31 @@ export default function Home() {
                 小红书
               </a>
               <span>提建议和围观微信小程序开发进度</span>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+              <span>也欢迎到</span>
+              <a
+                href="https://github.com/Zippland/perler-beads"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200 hover:underline font-medium"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="mr-0.5"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M12 0C5.37 0 0 5.48 0 12.25c0 5.42 3.44 10.01 8.2 11.63.6.12.82-.27.82-.6 0-.3-.01-1.08-.02-2.13-3.34.74-4.04-1.65-4.04-1.65-.55-1.44-1.35-1.83-1.35-1.83-1.1-.78.08-.77.08-.77 1.21.09 1.85 1.26 1.85 1.26 1.08 1.9 2.83 1.35 3.52 1.03.11-.81.42-1.35.77-1.66-2.66-.31-5.46-1.36-5.46-6.06 0-1.34.46-2.43 1.22-3.29-.12-.31-.53-1.55.12-3.23 0 0 1-.33 3.29 1.25a10.96 10.96 0 0 1 5.98 0c2.29-1.58 3.29-1.25 3.29-1.25.65 1.68.24 2.92.12 3.23.76.86 1.22 1.95 1.22 3.29 0 4.71-2.81 5.74-5.49 6.05.43.38.81 1.13.81 2.28 0 1.65-.02 2.98-.02 3.39 0 .33.22.72.83.59C20.56 22.25 24 17.67 24 12.25 24 5.48 18.63 0 12 0Z"
+                  />
+                </svg>
+                GitHub
+              </a>
+              <span>给项目点个🌟 支持一下</span>
             </div>
           </div>
         </div>
