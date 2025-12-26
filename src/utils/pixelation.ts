@@ -1,3 +1,5 @@
+import { transparentColorData } from './pixelEditingUtils';
+
 // 定义像素化模式
 export enum PixelationMode {
   Dominant = 'dominant', // 卡通模式（主色）
@@ -207,8 +209,8 @@ export function calculatePixelGrid(
                 const closestBead = findClosestPaletteColor(representativeRgb, palette);
                 finalCellColorData = { key: closestBead.key, color: closestBead.hex };
             } else {
-                // 如果单元格为空或全透明，使用备用色
-                finalCellColorData = { key: t1FallbackColor.key, color: t1FallbackColor.hex };
+                // 如果单元格为空或全透明，标记为透明/外部
+                finalCellColorData = { ...transparentColorData };
             }
             mappedData[j][i] = finalCellColorData;
         }

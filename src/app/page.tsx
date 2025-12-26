@@ -835,7 +835,7 @@ export default function Home() {
       // 2. 统计初始颜色数量
       const initialColorCounts: { [key: string]: number } = {};
       initialMappedData.flat().forEach(cell => {
-          if (cell && cell.key) {
+          if (cell && cell.key && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
               initialColorCounts[cell.key] = (initialColorCounts[cell.key] || 0) + 1;
           }
       });
@@ -854,7 +854,7 @@ export default function Home() {
       
       // 4. 复制初始数据，准备合并
       const mergedData: MappedPixel[][] = initialMappedData.map(row => 
-          row.map(cell => ({...cell, isExternal: false}))
+          row.map(cell => ({ ...cell, isExternal: cell.isExternal ?? false }))
       );
       
       // 5. 处理相似颜色合并
