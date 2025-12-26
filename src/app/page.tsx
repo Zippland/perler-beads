@@ -1199,6 +1199,105 @@ export default function Home() {
         setSelectedColor(null);
     };
 
+  // 一键去背景：识别边缘主色并洪水填充去除
+  const handleAutoRemoveBackground = () => {
+    if (!mappedPixelData || !gridDimensions) {
+      alert('请先生成图纸后再使用一键去背景。');
+      return;
+    }
+
+    const { N, M } = gridDimensions;
+    const borderCounts = new Map<string, number>();
+
+    const countBorderCell = (row: number, col: number) => {
+      const cell = mappedPixelData[row]?.[col];
+      if (!cell || cell.isExternal || cell.key === TRANSPARENT_KEY) return;
+      borderCounts.set(cell.key, (borderCounts.get(cell.key) || 0) + 1);
+    };
+
+    for (let col = 0; col < N; col++) {
+      countBorderCell(0, col);
+      if (M > 1) countBorderCell(M - 1, col);
+    }
+    for (let row = 1; row < M - 1; row++) {
+      countBorderCell(row, 0);
+      if (N > 1) countBorderCell(row, N - 1);
+    }
+
+    if (borderCounts.size === 0) {
+      alert('边缘没有可识别的背景颜色。');
+      return;
+    }
+
+    let targetKey = '';
+    let maxCount = -1;
+    borderCounts.forEach((count, key) => {
+      if (count > maxCount) {
+        maxCount = count;
+        targetKey = key;
+      }
+    });
+
+    const newPixelData = mappedPixelData.map(row => row.map(cell => ({ ...cell })));
+    const visited = Array(M).fill(null).map(() => Array(N).fill(false));
+    const stack: { row: number; col: number }[] = [];
+
+    const pushIfTarget = (row: number, col: number) => {
+      if (row < 0 || row >= M || col < 0 || col >= N || visited[row][col]) {
+        return;
+      }
+      const cell = newPixelData[row][col];
+      if (!cell || cell.isExternal || cell.key !== targetKey) return;
+      visited[row][col] = true;
+      stack.push({ row, col });
+    };
+
+    for (let col = 0; col < N; col++) {
+      pushIfTarget(0, col);
+      if (M > 1) pushIfTarget(M - 1, col);
+    }
+    for (let row = 1; row < M - 1; row++) {
+      pushIfTarget(row, 0);
+      if (N > 1) pushIfTarget(row, N - 1);
+    }
+
+    if (stack.length === 0) {
+      alert('未找到可去除的背景区域。');
+      return;
+    }
+
+    while (stack.length > 0) {
+      const { row, col } = stack.pop()!;
+      newPixelData[row][col] = { ...transparentColorData };
+      pushIfTarget(row - 1, col);
+      pushIfTarget(row + 1, col);
+      pushIfTarget(row, col - 1);
+      pushIfTarget(row, col + 1);
+    }
+
+    setMappedPixelData(newPixelData);
+
+    const newColorCounts: { [hexKey: string]: { count: number; color: string } } = {};
+    let newTotalCount = 0;
+    newPixelData.flat().forEach(cell => {
+      if (cell && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
+        const cellHex = cell.color.toUpperCase();
+        if (!newColorCounts[cellHex]) {
+          newColorCounts[cellHex] = {
+            count: 0,
+            color: cellHex
+          };
+        }
+        newColorCounts[cellHex].count++;
+        newTotalCount++;
+      }
+    });
+
+    setColorCounts(newColorCounts);
+    setTotalBeadCount(newTotalCount);
+    setInitialGridColorKeys(new Set(Object.keys(newColorCounts)));
+  };
+
   // --- Tooltip Logic ---
 
   // --- Canvas Interaction ---
@@ -2095,6 +2194,20 @@ export default function Home() {
                       className="h-9 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 rounded-md whitespace-nowrap transition-colors duration-200 shadow-sm flex-shrink-0"
                     >应用设置</button>
                   </div>
+                </div>
+
+                {/* 一键去背景 */}
+                <div className="sm:col-span-2">
+                  <button
+                    onClick={handleAutoRemoveBackground}
+                    disabled={!mappedPixelData || !gridDimensions}
+                    className="inline-flex items-center justify-center gap-2 px-2.5 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/60 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600 dark:text-gray-300" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M4 3a1 1 0 00-1 1v3a1 1 0 102 0V5h2a1 1 0 100-2H4zM13 3a1 1 0 100 2h2v2a1 1 0 102 0V4a1 1 0 00-1-1h-3zM4 12a1 1 0 00-1 1v3a1 1 0 001 1h3a1 1 0 100-2H5v-2a1 1 0 00-1-1zM16 12a1 1 0 00-1 1v2h-2a1 1 0 100 2h3a1 1 0 001-1v-3a1 1 0 00-1-1z" />
+                    </svg>
+                    一键去背景
+                  </button>
                 </div>
 
                 {/* 色号系统选择器 */}
