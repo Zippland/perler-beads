@@ -3,7 +3,8 @@ export type GridDownloadOptions = {
   showGrid: boolean;
   gridInterval: number;
   showCoordinates: boolean;
+  showCellNumbers: boolean;
   gridLineColor: string;
   includeStats: boolean;
   exportCsv: boolean; // 新增：是否同时导出CSV hex数据
-}; 
+};

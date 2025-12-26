@@ -239,7 +239,7 @@ export async function downloadImage({
     const downloadCellSize = 30;
   
     // 从下载选项中获取设置
-    const { showGrid, gridInterval, showCoordinates, gridLineColor, includeStats } = options;
+    const { showGrid, gridInterval, showCoordinates, gridLineColor, includeStats, showCellNumbers = true } = options;
   
     // 设置边距空间用于坐标轴标注（如果需要）
     const axisLabelSize = showCoordinates ? Math.max(30, Math.floor(downloadCellSize)) : 0;
@@ -563,13 +563,15 @@ export async function downloadImage({
         if (cellData && !cellData.isExternal) {
           // 内部单元格：使用珠子颜色填充并绘制文本
           const cellColor = cellData.color || '#FFFFFF';
-          const cellKey = getDisplayColorKey(cellData.color || '#FFFFFF', selectedColorSystem);
 
           ctx.fillStyle = cellColor;
           ctx.fillRect(drawX, drawY, downloadCellSize, downloadCellSize);
 
-          ctx.fillStyle = getContrastColor(cellColor);
-          ctx.fillText(cellKey, drawX + downloadCellSize / 2, drawY + downloadCellSize / 2);
+          if (showCellNumbers) {
+            const cellKey = getDisplayColorKey(cellData.color || '#FFFFFF', selectedColorSystem);
+            ctx.fillStyle = getContrastColor(cellColor);
+            ctx.fillText(cellKey, drawX + downloadCellSize / 2, drawY + downloadCellSize / 2);
+          }
         } else {
           // 外部背景：填充白色
           ctx.fillStyle = '#FFFFFF';
@@ -814,7 +816,9 @@ export async function downloadImage({
     try {
       const dataURL = downloadCanvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = `bead-grid-${N}x${M}-keys-palette_${selectedColorSystem}.png`; // 文件名包含色彩系统
+      link.download = showCellNumbers
+        ? `bead-grid-${N}x${M}-keys-palette_${selectedColorSystem}.png`
+        : `bead-grid-${N}x${M}-pixel-palette_${selectedColorSystem}.png`;
       link.href = dataURL;
       document.body.appendChild(link);
       link.click();
