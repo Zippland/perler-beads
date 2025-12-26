@@ -2172,6 +2172,23 @@ export default function Home() {
                     </div>
                 </div>
 
+                {/* 快捷按钮 */}
+                <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleConfirmParameters}
+                    className="h-9 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 rounded-md whitespace-nowrap transition-colors duration-200 shadow-sm"
+                  >
+                    应用数字
+                  </button>
+                  <button
+                    onClick={handleAutoRemoveBackground}
+                    disabled={!mappedPixelData || !gridDimensions}
+                    className="inline-flex items-center justify-center h-9 px-3 text-sm rounded-md border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-800/40 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    一键去背景
+                  </button>
+                </div>
+
                 {/* Pixelation Mode Selector */}
                 <div className="sm:col-span-2">
                   {/* Label color */}
@@ -2187,27 +2204,7 @@ export default function Home() {
                       <option value={PixelationMode.Dominant} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200">卡通 (主色)</option>
                       <option value={PixelationMode.Average} className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200">真实 (平均)</option>
                     </select>
-                    
-                    {/* 确认按钮 - 现在对应两个输入框 */}
-                    <button
-                      onClick={handleConfirmParameters}
-                      className="h-9 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 rounded-md whitespace-nowrap transition-colors duration-200 shadow-sm flex-shrink-0"
-                    >应用设置</button>
                   </div>
-                </div>
-
-                {/* 一键去背景 */}
-                <div className="sm:col-span-2">
-                  <button
-                    onClick={handleAutoRemoveBackground}
-                    disabled={!mappedPixelData || !gridDimensions}
-                    className="inline-flex items-center justify-center gap-2 px-2.5 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/60 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600 dark:text-gray-300" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M4 3a1 1 0 00-1 1v3a1 1 0 102 0V5h2a1 1 0 100-2H4zM13 3a1 1 0 100 2h2v2a1 1 0 102 0V4a1 1 0 00-1-1h-3zM4 12a1 1 0 00-1 1v3a1 1 0 001 1h3a1 1 0 100-2H5v-2a1 1 0 00-1-1zM16 12a1 1 0 00-1 1v2h-2a1 1 0 100 2h3a1 1 0 001-1v-3a1 1 0 00-1-1z" />
-                    </svg>
-                    一键去背景
-                  </button>
                 </div>
 
                 {/* 色号系统选择器 */}
