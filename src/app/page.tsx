@@ -2043,6 +2043,23 @@ export default function Home() {
           <p className="mt-4 text-base sm:text-lg font-light text-gray-600 dark:text-gray-300 max-w-lg mx-auto text-center tracking-[0.1em] leading-relaxed">
             让像素创意属于每一个人
           </p>
+
+          <div className="mt-5 flex items-center justify-center">
+            <a
+              href="https://perlerbeadsnew.zippland.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-blue-200 dark:border-blue-700 bg-white/90 dark:bg-gray-800/90 px-4 py-2 text-sm font-semibold text-blue-600 dark:text-blue-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+            >
+              <span>新版工作台</span>
+              <span className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
+                beta
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M3 10a1 1 0 011-1h9.586L11.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L13.586 11H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+            </a>
+          </div>
           
           {/* 添加小红书交流群链接 */}
           <div className="mt-6 flex flex-col items-center justify-center space-y-2">
