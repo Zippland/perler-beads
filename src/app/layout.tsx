@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
-import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
+import { WebOnlyComponents } from "@/components/WebOnlyComponents";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -64,13 +63,8 @@ export default function RootLayout({
             {children}
           </WorkspaceProvider>
         </ThemeProvider>
-        <Analytics />
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7207313144293144"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
+        {/* Web-only: Analytics 和 AdSense，在 Electron 环境下不渲染 */}
+        <WebOnlyComponents />
       </body>
     </html>
   );

@@ -24,9 +24,9 @@ const FocusModePreDownloadModal: React.FC<FocusModePreDownloadModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const handleDownloadAndProceed = () => {
+  const handleDownloadAndProceed = async () => {
     // 下载CSV数据文件
-    exportCsvData({
+    await exportCsvData({
       mappedPixelData,
       gridDimensions,
       selectedColorSystem

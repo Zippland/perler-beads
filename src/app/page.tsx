@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef, ChangeEvent, useEffect } from 'react';
 
 // 强制动态渲染，避免静态生成时的水合问题
-export const dynamic = 'force-dynamic';
+// 注意：Electron 打包走静态导出（next export），这里不要 force-dynamic
 import { WorkspaceLayout } from '@/components/layout';
 import { CanvasPlaceholder } from '@/components/layout/CenterCanvas';
 import { SidebarSection, SidebarDivider } from '@/components/layout/LeftSidebar';
@@ -23,6 +23,17 @@ import { Upload } from 'lucide-react';
 // 粒度吸附点
 const GRANULARITY_SNAP_POINTS = [50, 100, 150, 200];
 const SNAP_THRESHOLD = 5; // 吸附阈值
+
+// 默认导出选项（与 ExportPanel 默认一致）
+const DEFAULT_DOWNLOAD_OPTIONS: GridDownloadOptions = {
+  showGrid: true,
+  gridInterval: 10,
+  showCoordinates: true,
+  showCellNumbers: true,
+  gridLineColor: '#999999',
+  includeStats: true,
+  exportCsv: false,
+};
 import { WorkspaceMode, ToolType } from '@/types/workspace';
 import { usePixelationEngine } from '@/hooks/usePixelationEngine';
 import { useColorManagement, fullBeadPalette } from '@/hooks/useColorManagement';
@@ -30,9 +41,10 @@ import { useFocusMode } from '@/hooks/useFocusMode';
 import { PixelationMode, PaletteColor, MappedPixel } from '@/utils/pixelation';
 import { colorSystemOptions, convertPaletteToColorSystem, getDisplayColorKey } from '@/utils/colorSystemUtils';
 import { GridDownloadOptions } from '@/types/downloadTypes';
-import { paintSinglePixel, TRANSPARENT_KEY, transparentColorData } from '@/utils/pixelEditingUtils';
+import { paintSinglePixel, transparentColorData } from '@/utils/pixelEditingUtils';
 import { getConnectedRegion } from '@/utils/floodFillUtils';
-import { downloadImage } from '@/utils/imageDownloader';
+import { downloadImage, exportCsvData } from '@/utils/imageDownloader';
+import { isElectron, openFileWithElectron, getElectronAPI } from '@/utils/electronUtils';
 
 export default function Home() {
   // 模式状态
@@ -111,10 +123,34 @@ export default function Home() {
     if (file) handleFileUpload(file);
   }, [handleFileUpload]);
 
-  // 触发文件选择
-  const triggerFileInput = useCallback(() => {
+  // 处理从 Electron 或 dataUrl 加载图片
+  const handleImageDataUrl = useCallback((dataUrl: string) => {
+    setOriginalImageSrc(dataUrl);
+    // 处理图片
+    setTimeout(() => {
+      pixelationEngine.processImage(
+        dataUrl,
+        granularity,
+        similarityThreshold,
+        colorManagement.activeBeadPalette,
+        pixelationMode
+      );
+    }, 100);
+  }, [granularity, similarityThreshold, colorManagement.activeBeadPalette, pixelationMode, pixelationEngine]);
+
+  // 触发文件选择（支持 Electron 原生对话框）
+  const triggerFileInput = useCallback(async () => {
+    // 如果在 Electron 环境下，使用原生文件对话框
+    if (isElectron()) {
+      const result = await openFileWithElectron();
+      if (result && result.dataUrl) {
+        handleImageDataUrl(result.dataUrl);
+      }
+      return;
+    }
+    // Web 环境：使用传统文件输入
     fileInputRef.current?.click();
-  }, []);
+  }, [handleImageDataUrl]);
 
   // 重新处理图片
   const reprocessImage = useCallback(() => {
@@ -143,6 +179,77 @@ export default function Home() {
     // 注意：粒度和相似度阈值通过 onValueCommit 触发，避免拖动时频繁重绘
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pixelationMode, colorManagement.activeBeadPalette]);
+
+  // Electron 菜单事件监听
+  useEffect(() => {
+    if (!isElectron()) return;
+
+    const api = getElectronAPI();
+    if (!api) return;
+
+    // 监听菜单打开文件事件
+    api.onMenuOpenFile(() => {
+      triggerFileInput();
+    });
+
+    // 保存项目：导出 CSV 作为“项目数据”
+    api.onMenuSaveProject(() => {
+      exportCsvData({
+        mappedPixelData: pixelationEngine.mappedPixelData,
+        gridDimensions: pixelationEngine.gridDimensions,
+        selectedColorSystem: colorManagement.selectedColorSystem,
+      });
+    });
+
+    // 导出：执行一次默认下载（Electron 下会弹出保存对话框）
+    api.onMenuExport(() => {
+      downloadImage({
+        mappedPixelData: pixelationEngine.mappedPixelData,
+        gridDimensions: pixelationEngine.gridDimensions,
+        colorCounts: pixelationEngine.colorCounts,
+        totalBeadCount: pixelationEngine.totalBeadCount,
+        options: DEFAULT_DOWNLOAD_OPTIONS,
+        activeBeadPalette: colorManagement.activeBeadPalette,
+        selectedColorSystem: colorManagement.selectedColorSystem
+      });
+    });
+
+    // 撤销/重做：当前页面暂无通用历史栈，先做安全空实现（不影响原有功能）
+    api.onMenuUndo(() => {});
+    api.onMenuRedo(() => {});
+
+    // 监听菜单缩放事件
+    api.onMenuZoomIn(() => {
+      setCanvasScale(prev => Math.min(prev * 1.2, 10));
+    });
+    api.onMenuZoomOut(() => {
+      setCanvasScale(prev => Math.max(prev / 1.2, 0.1));
+    });
+    api.onMenuZoomReset(() => {
+      setCanvasScale(1);
+      setCanvasOffset({ x: 0, y: 0 });
+    });
+
+    // 清理函数
+    return () => {
+      api.removeAllListeners('menu-open-file');
+      api.removeAllListeners('menu-save-project');
+      api.removeAllListeners('menu-export');
+      api.removeAllListeners('menu-undo');
+      api.removeAllListeners('menu-redo');
+      api.removeAllListeners('menu-zoom-in');
+      api.removeAllListeners('menu-zoom-out');
+      api.removeAllListeners('menu-zoom-reset');
+    };
+  }, [
+    triggerFileInput,
+    pixelationEngine.mappedPixelData,
+    pixelationEngine.gridDimensions,
+    pixelationEngine.colorCounts,
+    pixelationEngine.totalBeadCount,
+    colorManagement.activeBeadPalette,
+    colorManagement.selectedColorSystem,
+  ]);
 
   // 粒度吸附处理
   const snapGranularity = useCallback((value: number): number => {

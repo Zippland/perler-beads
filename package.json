@@ -1,12 +1,23 @@
 {
   "name": "perler-beads",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "main": "electron/dist/main.js",
+  "author": {
+    "name": "七卡瓦",
+    "email": "contact@qikawa.fun"
+  },
+  "description": "七卡瓦拼豆底稿生成器 - 让你轻松制作精美的像素画作品",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "electron:compile": "tsc -p electron/tsconfig.json",
+    "electron:dev": "concurrently -k \"next dev\" \"wait-on http://localhost:3000 && npm run electron:compile && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "cross-env ELECTRON_BUILD=true next build && npm run electron:compile && electron-builder --win --config electron/electron-builder.yml",
+    "electron:build:dir": "cross-env ELECTRON_BUILD=true next build && npm run electron:compile && electron-builder --win --dir --config electron/electron-builder.yml",
+    "electron:build:all": "cross-env ELECTRON_BUILD=true next build && npm run electron:compile && electron-builder --win --mac --linux --config electron/electron-builder.yml"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -38,10 +49,16 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.6",
+    "png-to-ico": "^3.0.1",
     "sharp": "^0.34.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^9.0.3"
   }
 }

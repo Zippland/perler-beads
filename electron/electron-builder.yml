@@ -1,0 +1,80 @@
+appId: com.qikawa.perlerbeads
+productName: 七卡瓦拼豆底稿生成器
+copyright: Copyright © 2024-2026 七卡瓦
+
+directories:
+  output: releases
+  buildResources: electron/resources
+
+files:
+  - electron/dist/**/*
+  - out/**/*
+  - public/**/*
+  - "!node_modules"
+  - "!src"
+  - "!electron/src"
+  - "!electron/scripts"
+  - "!.git"
+  - "!.cursor"
+  - "!*.md"
+  - "!*.log"
+
+extraResources:
+  - from: out/
+    to: out/
+    filter:
+      - "**/*"
+  - from: public/
+    to: public/
+    filter:
+      - "**/*"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-Setup-${version}.${ext}
+  # 避免在 Windows 无管理员/未开开发者模式时解压 winCodeSign 失败（符号链接权限）
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 七卡瓦拼豆底稿生成器
+  include: electron/resources/installer.nsh
+  warningsAsErrors: false
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: public/icon-512x512.png
+  category: public.app-category.graphics-design
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  icon: public/icon-512x512.png
+  category: Graphics
+  artifactName: ${productName}-${version}.${ext}
+
+publish:
+  provider: generic
+  url: https://perler.qikawa.fun/releases/
