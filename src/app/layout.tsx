@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import "./globals.css";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,11 +50,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="">
+    <html lang="zh-CN" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <WorkspaceProvider>
+            {children}
+          </WorkspaceProvider>
+        </ThemeProvider>
         <Analytics />
         <Script
           async

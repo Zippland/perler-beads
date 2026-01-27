@@ -154,11 +154,13 @@ function hexToHsl(hex: string): { h: number; s: number; l: number } {
   return { h: h * 360, s: s * 100, l: l * 100 };
 }
 
-// 按色相排序颜色
-export function sortColorsByHue<T extends { color: string }>(colors: T[]): T[] {
+// 按色相排序颜色 (支持 color 或 hex 属性)
+export function sortColorsByHue<T extends { color?: string; hex?: string }>(colors: T[]): T[] {
   return colors.slice().sort((a, b) => {
-    const hslA = hexToHsl(a.color);
-    const hslB = hexToHsl(b.color);
+    const colorA = a.color || a.hex || '';
+    const colorB = b.color || b.hex || '';
+    const hslA = hexToHsl(colorA);
+    const hslB = hexToHsl(colorB);
     
     // 首先按色相排序
     if (Math.abs(hslA.h - hslB.h) > 5) { // 增加色相容差，让更相近的色相归为一组
