@@ -22,7 +22,14 @@ const withPWA = require("next-pwa")({
 });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "qimg.xiaohongshu.com",
+      },
+    ],
+  },
 };
 
 export default withPWA(nextConfig);
