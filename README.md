@@ -4,11 +4,14 @@
 
 ### 任意图片 → 拼豆底稿，一键生成
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-perlerbeads.zippland.com-ff69b4?style=for-the-badge)](https://perlerbeads.zippland.com)
+[![Mobile](https://img.shields.io/badge/移动端-perlerbeads.zippland.com-ff69b4?style=for-the-badge)](https://perlerbeads.zippland.com)
+[![Desktop](https://img.shields.io/badge/桌面端-perlerbeadsnew.zippland.com-8b5cf6?style=for-the-badge)](https://perlerbeadsnew.zippland.com)
 [![License](https://img.shields.io/badge/License-AGPL%20v3-blue?style=for-the-badge)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge)](https://github.com/Zippland/perler-beads/pulls)
 
 开源的智能拼豆图纸生成器 — 自动颜色映射 · 多品牌色号适配 · 杂色清理 · 一键导出图纸与采购清单
+
+**移动端**（竖屏）：快速生成图纸，适合手机使用 · **桌面端**（横屏）：完整工作台，适合电脑精细编辑
 
 </div>
 

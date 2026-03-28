@@ -2044,18 +2044,19 @@ export default function Home() {
             让像素创意属于每一个人
           </p>
 
-          <div className="mt-5 flex items-center justify-center">
+          {/* 桌面端/横屏引导横幅 - 仅在宽屏设备上显示 */}
+          <div className="mt-5 hidden md:flex items-center justify-center">
             <a
               href="https://perlerbeadsnew.zippland.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-blue-200 dark:border-blue-700 bg-white/90 dark:bg-gray-800/90 px-4 py-2 text-sm font-semibold text-blue-600 dark:text-blue-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              className="group inline-flex items-center gap-3 rounded-xl border border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 px-5 py-3 text-sm font-semibold text-blue-700 dark:text-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
             >
-              <span>新版工作台</span>
-              <span className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
-                beta
-              </span>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-blue-500 dark:text-blue-300">
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm1 0v8h12V4H4zm-1 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+              <span>检测到横屏设备 — 前往桌面工作台，体验更佳</span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200">
                 <path fillRule="evenodd" d="M3 10a1 1 0 011-1h9.586L11.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L13.586 11H4a1 1 0 01-1-1z" clipRule="evenodd" />
               </svg>
             </a>
