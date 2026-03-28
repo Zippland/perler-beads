@@ -5,7 +5,7 @@
 ### 任意图片 → 拼豆底稿，一键生成
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-perlerbeads.zippland.com-ff69b4?style=for-the-badge)](https://perlerbeads.zippland.com)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](./LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL%20v3-blue?style=for-the-badge)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge)](https://github.com/Zippland/perler-beads/pulls)
 
 开源的智能拼豆图纸生成器 — 自动颜色映射 · 多品牌色号适配 · 杂色清理 · 一键导出图纸与采购清单
@@ -95,4 +95,4 @@ npm run dev
 
 ## 许可证
 
-[Apache-2.0](./LICENSE) &copy; [Zippland](https://github.com/Zippland)
+[AGPL-3.0](./LICENSE) &copy; [Zippland](https://github.com/Zippland)
