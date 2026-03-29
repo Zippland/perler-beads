@@ -2074,7 +2074,7 @@ export default function Home() {
                     </svg>
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">检测到横屏设备</h3>
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">横屏工作台拥有更完整的功能和更佳的操作体验。</p>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">桌面工作台拥有更完整的功能和操作体验，推荐前往使用。</p>
                   <div className="mt-5 flex w-full gap-3">
                     <button
                       onClick={() => { setShowDesktopModal(false); sessionStorage.setItem('desktopModalDismissed', '1'); }}
