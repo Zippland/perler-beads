@@ -182,6 +182,9 @@ export default function Home() {
   // 新增：专心拼豆模式进入前下载提醒弹窗
   const [isFocusModePreDownloadModalOpen, setIsFocusModePreDownloadModalOpen] = useState<boolean>(false);
 
+  // 新增：横屏设备弹窗状态
+  const [showDesktopModal, setShowDesktopModal] = useState<boolean>(false);
+
   // 放大镜切换处理函数
   const handleToggleMagnifier = () => {
     const newActiveState = !isMagnifierActive;
@@ -1008,6 +1011,14 @@ export default function Home() {
   // 设置组件挂载状态
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  // 检测横屏/宽屏设备，显示桌面工作台弹窗
+  useEffect(() => {
+    const dismissed = sessionStorage.getItem('desktopModalDismissed');
+    if (!dismissed && window.innerWidth >= 768) {
+      setShowDesktopModal(true);
+    }
   }, []);
 
   // 添加URL重定向检查
@@ -2044,23 +2055,49 @@ export default function Home() {
             让像素创意属于每一个人
           </p>
 
-          {/* 桌面端/横屏引导横幅 - 仅在宽屏设备上显示 */}
-          <div className="mt-5 hidden md:flex items-center justify-center">
-            <a
-              href="https://perlerbeadsnew.zippland.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group inline-flex items-center gap-3 rounded-xl border border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 px-5 py-3 text-sm font-semibold text-blue-700 dark:text-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-blue-500 dark:text-blue-300">
-                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm1 0v8h12V4H4zm-1 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-              </svg>
-              <span>检测到横屏设备 — 前往桌面工作台，体验更佳</span>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200">
-                <path fillRule="evenodd" d="M3 10a1 1 0 011-1h9.586L11.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L13.586 11H4a1 1 0 01-1-1z" clipRule="evenodd" />
-              </svg>
-            </a>
-          </div>
+          {/* 横屏设备弹窗 */}
+          {showDesktopModal && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowDesktopModal(false); sessionStorage.setItem('desktopModalDismissed', '1'); }}>
+              <div className="relative mx-4 w-full max-w-md rounded-2xl border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                <button
+                  onClick={() => { setShowDesktopModal(false); sessionStorage.setItem('desktopModalDismissed', '1'); }}
+                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                  </svg>
+                </button>
+                <div className="flex flex-col items-center text-center">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6 text-blue-500 dark:text-blue-300">
+                      <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm1 0v8h12V4H4zm-1 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">检测到横屏设备</h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">横屏工作台拥有更完整的功能和更佳的操作体验。</p>
+                  <div className="mt-5 flex w-full gap-3">
+                    <button
+                      onClick={() => { setShowDesktopModal(false); sessionStorage.setItem('desktopModalDismissed', '1'); }}
+                      className="flex-1 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      留在此页
+                    </button>
+                    <a
+                      href="https://perlerbeadsnew.zippland.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                    >
+                      前往桌面工作台
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                        <path fillRule="evenodd" d="M3 10a1 1 0 011-1h9.586L11.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L13.586 11H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* 添加小红书交流群链接 */}
           <div className="mt-6 flex flex-col items-center justify-center space-y-2">
