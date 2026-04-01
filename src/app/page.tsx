@@ -1013,7 +1013,7 @@ export default function Home() {
     setIsMounted(true);
   }, []);
 
-  // 强制显示桌面工作台弹窗（每次进入页面都弹，引导用户前往新版）
+  // 强制显示生成器 2.0 弹窗（每次进入页面都弹，引导用户前往新版）
   useEffect(() => {
     setShowDesktopModal(true);
   }, []);
@@ -2069,8 +2069,8 @@ export default function Home() {
                       <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm1 0v8h12V4H4zm-1 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">生成器 2.0已上线</h3>
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">生成器 2.0拥有更完整的功能和更好的操作体验，推荐前往使用。</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">生成器 2.0 已上线</h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">生成器 2.0 拥有更完整的功能和更好的操作体验，推荐前往使用。</p>
                   <div className="mt-5 flex w-full gap-3">
                     <button
                       onClick={() => setShowDesktopModal(false)}
@@ -2084,7 +2084,7 @@ export default function Home() {
                       rel="noopener noreferrer"
                       className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
                     >
-                      前往桌面工作台
+                      前往生成器 2.0
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                         <path fillRule="evenodd" d="M3 10a1 1 0 011-1h9.586L11.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L13.586 11H4a1 1 0 01-1-1z" clipRule="evenodd" />
                       </svg>
@@ -2095,7 +2095,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* 链接行：桌面工作台 · 小红书 · GitHub */}
+          {/* 链接行：生成器 2.0 · 小红书 · GitHub */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 text-xs">
             <a href="https://perlerbeadsnew.zippland.com/" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
