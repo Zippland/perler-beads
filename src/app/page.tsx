@@ -1013,11 +1013,9 @@ export default function Home() {
     setIsMounted(true);
   }, []);
 
-  // 检测横屏/宽屏设备，显示桌面工作台弹窗（每次进入页面都弹）
+  // 强制显示桌面工作台弹窗（每次进入页面都弹，引导用户前往新版）
   useEffect(() => {
-    if (window.innerWidth >= 768) {
-      setShowDesktopModal(true);
-    }
+    setShowDesktopModal(true);
   }, []);
 
   // 添加URL重定向检查
@@ -2071,8 +2069,8 @@ export default function Home() {
                       <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm1 0v8h12V4H4zm-1 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">检测到横屏设备</h3>
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">桌面工作台拥有更完整的功能和操作体验，推荐前往使用。</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">生成器 2.0已上线</h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">生成器 2.0拥有更完整的功能和更好的操作体验，推荐前往使用。</p>
                   <div className="mt-5 flex w-full gap-3">
                     <button
                       onClick={() => setShowDesktopModal(false)}
@@ -2103,7 +2101,7 @@ export default function Home() {
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                 <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm1 0v8h12V4H4zm-1 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
               </svg>
-              横屏工作台
+              生成器 2.0
               <span className="px-1 py-px rounded bg-indigo-500 text-[9px] font-bold text-white leading-none">NEW</span>
             </a>
             <span className="text-gray-300 dark:text-gray-600">·</span>
