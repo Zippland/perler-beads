@@ -1024,7 +1024,7 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       const currentUrl = window.location.href;
       const currentHostname = window.location.hostname;
-      const targetDomain = 'https://perlerbeads.zippland.com/';
+      const targetDomain = 'https://perlerbeadsold.zippland.com/';
       
       // 排除localhost和127.0.0.1等本地开发环境
       const isLocalhost = currentHostname === 'localhost' || 
@@ -2079,7 +2079,7 @@ export default function Home() {
                       留在此页
                     </button>
                     <a
-                      href="https://perlerbeadsnew.zippland.com/"
+                      href="https://perlerbeads.zippland.com/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
@@ -2097,7 +2097,7 @@ export default function Home() {
 
           {/* 链接行：专业工作台· 小红书 · GitHub */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 text-xs">
-            <a href="https://perlerbeadsnew.zippland.com/" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium transition-colors">
+            <a href="https://perlerbeads.zippland.com/" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                 <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm1 0v8h12V4H4zm-1 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
               </svg>

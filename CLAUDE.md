@@ -2,7 +2,7 @@
 
 因为市面上的拼豆软件差强人意（可能是我没用到好的），所以花了大概两个小时，写了一个专门生成拼豆图纸的网站：
 
-[perlerbeads.zippland.com](perlerbeads.zippland.com)
+[perlerbeadsold.zippland.com](perlerbeadsold.zippland.com)
 
 ❓
 想解决的（市场上拼豆软件的）问题：

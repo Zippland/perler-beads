@@ -4,8 +4,8 @@
 
 ### 任意图片 → 拼豆底稿，一键生成
 
-[![Mobile](https://img.shields.io/badge/移动端-perlerbeads.zippland.com-ff69b4?style=for-the-badge)](https://perlerbeads.zippland.com)
-[![Desktop](https://img.shields.io/badge/桌面端-perlerbeadsnew.zippland.com-8b5cf6?style=for-the-badge)](https://perlerbeadsnew.zippland.com)
+[![Mobile](https://img.shields.io/badge/移动端-perlerbeadsold.zippland.com-ff69b4?style=for-the-badge)](https://perlerbeadsold.zippland.com)
+[![Desktop](https://img.shields.io/badge/桌面端-perlerbeads.zippland.com-8b5cf6?style=for-the-badge)](https://perlerbeads.zippland.com)
 [![License](https://img.shields.io/badge/License-AGPL%20v3-blue?style=for-the-badge)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge)](https://github.com/Zippland/perler-beads/pulls)
 
@@ -90,7 +90,7 @@ npm run dev
 
 ## 共创声明
 
-本项目永久开源，由维护者无偿运营 [perlerbeads.zippland.com](https://perlerbeads.zippland.com) 供所有拼豆爱好者免费使用。
+本项目永久开源，由维护者无偿运营 [perlerbeadsold.zippland.com](https://perlerbeadsold.zippland.com) 供所有拼豆爱好者免费使用。
 
 我们公开全部算法细节和源代码，目的是推动拼豆工具生态的共同进步。欢迎所有人学习、使用、改进。
 
