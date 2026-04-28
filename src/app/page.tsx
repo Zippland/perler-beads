@@ -445,18 +445,18 @@ export default function Home() {
       const fileType = file.type.toLowerCase();
       
       // 支持的图片类型
-      const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
       // 支持的CSV MIME类型（不同浏览器可能返回不同的MIME类型）
       const supportedCsvTypes = ['text/csv', 'application/csv', 'text/plain'];
-      
+
       const isImageFile = supportedImageTypes.includes(fileType) || fileType.startsWith('image/');
       const isCsvFile = supportedCsvTypes.includes(fileType) || fileName.endsWith('.csv');
-      
+
       if (isImageFile || isCsvFile) {
         setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
         processFile(file);
       } else {
-        alert(`不支持的文件类型: ${file.type || '未知'}。请选择 JPG、PNG 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`);
+        alert(`不支持的文件类型: ${file.type || '未知'}。请选择 JPG、PNG、GIF 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`);
         console.warn(`Unsupported file type: ${file.type}, file name: ${file.name}`);
       }
     }
@@ -479,18 +479,18 @@ export default function Home() {
         const fileType = file.type.toLowerCase();
         
         // 支持的图片类型
-        const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
         // 支持的CSV MIME类型（不同浏览器可能返回不同的MIME类型）
         const supportedCsvTypes = ['text/csv', 'application/csv', 'text/plain'];
-        
+
         const isImageFile = supportedImageTypes.includes(fileType) || fileType.startsWith('image/');
         const isCsvFile = supportedCsvTypes.includes(fileType) || fileName.endsWith('.csv');
-        
+
         if (isImageFile || isCsvFile) {
           setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
           processFile(file);
         } else {
-          alert(`不支持的文件类型: ${file.type || '未知'}。请拖放 JPG、PNG 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`);
+          alert(`不支持的文件类型: ${file.type || '未知'}。请拖放 JPG、PNG、GIF 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`);
           console.warn(`Unsupported file type: ${file.type}, file name: ${file.name}`);
         }
       }
@@ -604,9 +604,7 @@ export default function Home() {
         });
     } else {
       // 处理图片文件
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
+      const applyImageSrc = (result: string) => {
         setOriginalImageSrc(result);
         setMappedPixelData(null);
         setGridDimensions(null);
@@ -619,12 +617,39 @@ export default function Home() {
         setGranularityInput(defaultGranularity.toString());
         setRemapTrigger(prev => prev + 1); // Trigger full remap for new image
       };
-      reader.onerror = () => {
+
+      const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+
+      if (isGif) {
+        // GIF 走 createImageBitmap，规范保证返回首帧（default image），再烘焙为 PNG dataURL
+        createImageBitmap(file)
+          .then((bitmap) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('无法创建 Canvas 上下文');
+            ctx.drawImage(bitmap, 0, 0);
+            bitmap.close();
+            applyImageSrc(canvas.toDataURL('image/png'));
+          })
+          .catch((error) => {
+            console.error('GIF 处理失败:', error);
+            alert('无法读取 GIF 文件。');
+            setInitialGridColorKeys(new Set());
+          });
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          applyImageSrc(e.target?.result as string);
+        };
+        reader.onerror = () => {
           console.error("文件读取失败");
           alert("无法读取文件。");
           setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
+        };
+        reader.readAsDataURL(file);
       }
-      reader.readAsDataURL(file);
       // ++ Reset manual coloring mode when a new file is processed ++
       setIsManualColoringMode(false);
       setSelectedColor(null);
@@ -2140,7 +2165,7 @@ export default function Home() {
           {/* Text color */}
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">拖放图片到此处，或<span className="font-medium text-blue-600 dark:text-blue-400">点击选择文件</span></p>
           {/* Text color */}
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">支持 JPG, PNG 图片格式，或 CSV 数据文件</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">支持 JPG, PNG, GIF 图片格式，或 CSV 数据文件</p>
         </div>
 
         {/* Apply dark mode styles to the Tip Box */}
@@ -2157,7 +2182,7 @@ export default function Home() {
           </div>
         )}
 
-                      <input type="file" accept="image/jpeg, image/png, .csv, text/csv, application/csv, text/plain" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
+                      <input type="file" accept="image/jpeg, image/png, image/gif, .csv, text/csv, application/csv, text/plain" onChange={handleFileChange} ref={fileInputRef} className="hidden" />
 
         {/* Controls and Output Area */}
         {originalImageSrc && (
