@@ -5,9 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "lint": "next lint",
-    "verify:ui-contract": "node scripts/verify-ui-contract.mjs"
+    "typecheck": "tsc --noEmit",
+    "verify:ui-contract": "node scripts/verify-ui-contract.mjs",
+    "check": "npm run typecheck && npm run lint && npm run verify:ui-contract && npm run build",
+    "healthz": "node -e \"require('http').get('http://localhost:3000/api/healthz', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>{ console.log(d); process.exit(r.statusCode===200?0:1); }); })\""
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",

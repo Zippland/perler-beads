@@ -18,6 +18,7 @@ import {
 import { GridDownloadOptions } from '../types/downloadTypes';
 import DownloadSettingsModal, { gridLineColorOptions } from '../components/DownloadSettingsModal';
 import { downloadImage, importCsvData } from '../utils/imageDownloader';
+import { checkFileSize, checkImagePixels, checkGridSize, checkCsvSize } from '../utils/limits';
 
 import { 
   colorSystemOptions, 
@@ -312,18 +313,21 @@ export default function Home() {
 
   // --- Derived State ---
 
-  // Update active palette based on selection and exclusions
-  useEffect(() => {
-    const newActiveBeadPalette = fullBeadPalette.filter(color => {
+  // 同步派生 activePalette（单一数据源，消除竞态）
+  const activePalette: PaletteColor[] = useMemo(() => {
+    const filtered = fullBeadPalette.filter(color => {
       const normalizedHex = color.hex.toUpperCase();
       const isSelectedInCustomPalette = customPaletteSelections[normalizedHex];
       const isNotExcluded = !excludedColorKeys.has(normalizedHex);
       return isSelectedInCustomPalette && isNotExcluded;
     });
-    // 根据选择的色号系统转换调色板
-    const convertedPalette = convertPaletteToColorSystem(newActiveBeadPalette, selectedColorSystem);
-    setActiveBeadPalette(convertedPalette);
-  }, [customPaletteSelections, excludedColorKeys, remapTrigger, selectedColorSystem]);
+    return convertPaletteToColorSystem(filtered, selectedColorSystem);
+  }, [fullBeadPalette, customPaletteSelections, excludedColorKeys, selectedColorSystem]);
+
+  // Keep activeBeadPalette in sync for downstream consumers
+  useEffect(() => {
+    setActiveBeadPalette(activePalette);
+  }, [activePalette]);
 
   // ++ 添加：当状态变化时同步更新输入框的值 ++
   useEffect(() => {
@@ -409,19 +413,6 @@ export default function Home() {
     }
   }, []); // 只在组件首次加载时执行
 
-  // 更新 activeBeadPalette 基于自定义选择和排除列表
-  useEffect(() => {
-    const newActiveBeadPalette = fullBeadPalette.filter(color => {
-      const normalizedHex = color.hex.toUpperCase();
-      const isSelectedInCustomPalette = customPaletteSelections[normalizedHex];
-      // 使用hex值进行排除检查
-      const isNotExcluded = !excludedColorKeys.has(normalizedHex);
-      return isSelectedInCustomPalette && isNotExcluded;
-    });
-    // 不进行色号系统转换，保持原始的MARD色号和hex值
-    setActiveBeadPalette(newActiveBeadPalette);
-  }, [customPaletteSelections, excludedColorKeys, remapTrigger]);
-
   // --- Event Handlers ---
 
   // 专心拼豆模式相关处理函数
@@ -482,6 +473,16 @@ export default function Home() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // 检查文件大小
+      const sizeCheck = checkFileSize(file.size);
+      if (!sizeCheck.ok) { alert(sizeCheck.message); return; }
+
+      // 对 CSV 文件额外检查大小
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        const csvCheck = checkCsvSize(file.size);
+        if (!csvCheck.ok) { alert(csvCheck.message); return; }
+      }
+
       // 检查文件类型是否支持
       const fileName = file.name.toLowerCase();
       const fileType = file.type.toLowerCase();
@@ -799,10 +800,26 @@ export default function Home() {
     
     img.onload = () => {
       console.log("Image loaded successfully.");
+
+      // 检查源图像素上限
+      const imgPixelCheck = checkImagePixels(img.width, img.height);
+      if (!imgPixelCheck.ok) { alert(imgPixelCheck.message); setOriginalImageSrc(null); setMappedPixelData(null); setGridDimensions(null); setPixelatedCanvasSize(null); return; }
+
       const aspectRatio = img.height / img.width;
       const N = detailLevel;
       const M = Math.max(1, Math.round(N * aspectRatio));
       if (N <= 0 || M <= 0) { console.error("Invalid grid dimensions:", { N, M }); return; }
+
+      // 检查网格尺寸上限
+      const gridCheck = checkGridSize(N, M);
+      if (!gridCheck.ok) {
+        alert(`${gridCheck.message}\n\n请降低"宽度颗粒"数值（当前 ${N}，建议 ≤${Math.min(300, Math.round(300 / aspectRatio))}）。`);
+        setOriginalImageSrc(null);
+        setMappedPixelData(null);
+        setGridDimensions(null);
+        setPixelatedCanvasSize(null);
+        return;
+      }
       console.log(`Grid size: ${N}x${M}`);
 
       // 动态调整画布尺寸：当格子数量大于100时，增加画布尺寸以保持每个格子的可见性
@@ -1000,17 +1017,17 @@ export default function Home() {
 
   // 修改useEffect中的pixelateImage调用，加入模式参数
   useEffect(() => {
-    if (originalImageSrc && activeBeadPalette.length > 0) {
+    if (originalImageSrc && activePalette.length > 0) {
        const timeoutId = setTimeout(() => {
-         if (originalImageSrc && originalCanvasRef.current && activeBeadPalette.length > 0) {
-           console.log("useEffect triggered: Processing image due to src, granularity, threshold, palette selection, mode or remap trigger.");
-           pixelateImage(originalImageSrc, granularity, similarityThreshold, activeBeadPalette, pixelationMode);
+         if (originalImageSrc && originalCanvasRef.current && activePalette.length > 0) {
+           console.log("useEffect triggered: Processing image due to src, granularity, threshold, palette, mode or remap trigger.");
+           pixelateImage(originalImageSrc, granularity, similarityThreshold, activePalette, pixelationMode);
          } else {
             console.warn("useEffect check failed inside timeout: Refs or active palette not ready/empty.");
          }
        }, 50);
        return () => clearTimeout(timeoutId);
-    } else if (originalImageSrc && activeBeadPalette.length === 0) {
+    } else if (originalImageSrc && activePalette.length === 0) {
         console.warn("Image selected, but the active palette is empty after exclusions. Cannot process. Clearing preview.");
         const pixelatedCanvas = pixelatedCanvasRef.current;
         const pixelatedCtx = pixelatedCanvas?.getContext('2d');
@@ -1029,8 +1046,7 @@ export default function Home() {
         // setColorCounts(null);
         // setTotalBeadCount(0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originalImageSrc, granularity, similarityThreshold, customPaletteSelections, pixelationMode, remapTrigger]);
+  }, [originalImageSrc, granularity, similarityThreshold, activePalette, pixelationMode, remapTrigger]);
 
   // 确保文件输入框引用在组件挂载后正确设置
   useEffect(() => {

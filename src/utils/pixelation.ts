@@ -73,6 +73,7 @@ function rgbToOklab(rgb: RgbColor): OklabColor {
   };
 }
 
+const OKLAB_CACHE_MAX = 5000;
 const oklabCache = new Map<string, OklabColor>();
 
 function getOklabColor(rgb: RgbColor): OklabColor {
@@ -80,6 +81,12 @@ function getOklabColor(rgb: RgbColor): OklabColor {
   const cached = oklabCache.get(cacheKey);
   if (cached) {
     return cached;
+  }
+
+  // LRU 驱逐：超出上限时删除最早条目
+  if (oklabCache.size >= OKLAB_CACHE_MAX) {
+    const firstKey = oklabCache.keys().next().value;
+    if (firstKey !== undefined) oklabCache.delete(firstKey);
   }
 
   const oklab = rgbToOklab(rgb);

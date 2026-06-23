@@ -1,6 +1,7 @@
 import { GridDownloadOptions } from '../types/downloadTypes';
 import { MappedPixel, PaletteColor } from './pixelation';
 import { getDisplayColorKey, getColorKeyByHex, ColorSystem } from './colorSystemUtils';
+import { checkExportPixels } from './limits';
 
 // 用于获取对比色的工具函数 - 改进版，带文字描边效果
 function getContrastColor(hex: string): string {
@@ -310,7 +311,11 @@ export async function downloadImage({
     // 调整画布大小，包含标题栏、坐标轴、统计区域和底部留白（四边都有坐标）
     const downloadWidth = gridWidth + (axisLabelSize * 2) + extraLeftMargin + extraRightMargin;
     let downloadHeight = titleBarHeight + gridHeight + (axisLabelSize * 2) + statsHeight + extraTopMargin + extraBottomMargin + bottomPadding;
-  
+
+    // 检查导出画布像素上限
+    const exportCheck = checkExportPixels(downloadWidth, downloadHeight);
+    if (!exportCheck.ok) { alert(exportCheck.message); return; }
+
     let downloadCanvas = document.createElement('canvas');
     downloadCanvas.width = downloadWidth;
     downloadCanvas.height = downloadHeight;
@@ -777,6 +782,10 @@ export async function downloadImage({
       const newDownloadHeight = titleBarHeight + extraTopMargin + M * downloadCellSize + (axisLabelSize * 2) + statsHeight + extraBottomMargin + bottomPadding;
       
       if (downloadHeight !== newDownloadHeight) {
+        // 检查新画布像素上限
+        const resizeCheck = checkExportPixels(downloadWidth, newDownloadHeight);
+        if (!resizeCheck.ok) { alert(resizeCheck.message); return; }
+
         // 如果高度变化了，需要创建新的画布并复制当前内容
         const newCanvas = document.createElement('canvas');
         newCanvas.width = downloadWidth;
