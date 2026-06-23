@@ -1,7 +1,7 @@
 {
-  "name": "七卡瓦拼豆底稿生成器",
-  "short_name": "七卡瓦",
-  "description": "七卡瓦拼豆底稿生成器，让你轻松制作精美的像素画作品",
+  "name": "Juice拼豆底稿生成器",
+  "short_name": "Juice拼豆",
+  "description": "Juice拼豆底稿生成器，导入图片即可生成可编辑、可导出的拼豆图纸",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#E8F4FD",

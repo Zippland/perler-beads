@@ -8,6 +8,9 @@ interface PixelatedPreviewCanvasProps {
   gridDimensions: { N: number; M: number } | null;
   isManualColoringMode: boolean;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  zoom?: number;
   onInteraction: (
     clientX: number,
     clientY: number,
@@ -101,6 +104,9 @@ const PixelatedPreviewCanvas: React.FC<PixelatedPreviewCanvasProps> = ({
   gridDimensions,
   isManualColoringMode,
   canvasRef,
+  canvasWidth,
+  canvasHeight,
+  zoom,
   onInteraction,
   highlightColorKey,
   onHighlightComplete,
@@ -133,6 +139,14 @@ const PixelatedPreviewCanvas: React.FC<PixelatedPreviewCanvasProps> = ({
     return () => observer.disconnect();
 
   }, [darkModeState]); // Depend on darkModeState to re-run if needed externally
+
+  // Effect to set canvas pixel dimensions from props (ensures square cells)
+  useEffect(() => {
+    if (canvasRef.current && canvasWidth && canvasHeight) {
+      canvasRef.current.width = canvasWidth;
+      canvasRef.current.height = canvasHeight;
+    }
+  }, [canvasRef, canvasWidth, canvasHeight]);
 
   // Update useEffect for drawing to depend on darkModeState as well
   useEffect(() => {
@@ -236,22 +250,29 @@ const PixelatedPreviewCanvas: React.FC<PixelatedPreviewCanvasProps> = ({
     touchMovedRef.current = false;
   };
 
+  const z = zoom && zoom > 0 ? zoom : 1;
+  const cssWidth = canvasWidth ? canvasWidth * z : undefined;
+  const cssHeight = canvasHeight ? canvasHeight * z : undefined;
+
   return (
     <canvas
       ref={canvasRef}
+      width={canvasWidth}
+      height={canvasHeight}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd} // 添加 onTouchCancel 以处理触摸中断的情况
-      className={`border border-gray-300 dark:border-gray-600 max-w-full h-auto rounded block ${
-        isManualColoringMode ? 'cursor-pointer' : 'cursor-grab' // 改为 grab 光标提示可以拖动
+      onTouchCancel={handleTouchEnd}
+      className={`border border-gray-300 dark:border-gray-600 rounded block ${
+        isManualColoringMode ? 'cursor-pointer' : 'cursor-grab'
       }`}
       style={{
+        width: cssWidth ? `${cssWidth}px` : undefined,
+        height: cssHeight ? `${cssHeight}px` : undefined,
         imageRendering: 'pixelated',
-        // touchAction: 'none' // 移除此行以允许页面滚动和缩放
       }}
     />
   );

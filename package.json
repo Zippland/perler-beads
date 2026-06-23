@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "verify:ui-contract": "node scripts/verify-ui-contract.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",

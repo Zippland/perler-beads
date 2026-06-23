@@ -2,13 +2,34 @@ import { GridDownloadOptions } from '../types/downloadTypes';
 import { MappedPixel, PaletteColor } from './pixelation';
 import { getDisplayColorKey, getColorKeyByHex, ColorSystem } from './colorSystemUtils';
 
-// 用于获取对比色的工具函数 - 从page.tsx复制
+// 用于获取对比色的工具函数 - 改进版，带文字描边效果
 function getContrastColor(hex: string): string {
   const rgb = hexToRgb(hex);
-  if (!rgb) return '#000000'; // Default to black
-  // Simple brightness check (Luma formula Y = 0.2126 R + 0.7152 G + 0.0722 B)
+  if (!rgb) return '#000000';
+  // WCAG 相对亮度公式
   const luma = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
-  return luma > 0.5 ? '#000000' : '#FFFFFF'; // Dark background -> white text, Light background -> black text
+  return luma > 0.55 ? '#1a1a1a' : '#fafafa'; // 用 off-black/off-white 更柔和
+}
+
+// 绘制带描边的文字，确保在各种底色上清晰可读
+function drawLabelWithOutline(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  textColor: string,
+  outlineColor: string
+) {
+  // 先绘制描边（四个方向偏移）
+  ctx.fillStyle = outlineColor;
+  const offset = 1;
+  ctx.fillText(text, x - offset, y);
+  ctx.fillText(text, x + offset, y);
+  ctx.fillText(text, x, y - offset);
+  ctx.fillText(text, x, y + offset);
+  // 再绘制主文字
+  ctx.fillStyle = textColor;
+  ctx.fillText(text, x, y);
 }
 
 // 辅助函数：将十六进制颜色转换为RGB
@@ -229,10 +250,6 @@ export async function downloadImage({
     return;
   }
   
-  // 加载二维码图片
-  const qrCodeImage = new Image();
-  qrCodeImage.src = '/website_qrcode.png'; // 使用public目录中的图片
-  
   // 主要下载处理函数
   const processDownload = () => {
     const { N, M } = gridDimensions; // 此时已确保gridDimensions不为null
@@ -248,27 +265,25 @@ export async function downloadImage({
     const statsPadding = 20;
     let statsHeight = 0;
     
-    // 预先计算用于字体大小的变量
+    // 预先计算可用宽度
     const preCalcWidth = N * downloadCellSize + axisLabelSize;
     const preCalcAvailableWidth = preCalcWidth - (statsPadding * 2);
-    
-    // 计算字体大小 - 与颜色统计区域保持一致
-    const baseStatsFontSize = 13;
-    const widthFactor = Math.max(0, preCalcAvailableWidth - 350) / 600;
-    const statsFontSize = Math.floor(baseStatsFontSize + (widthFactor * 10));
-    
+
+    // 估算字体参考大小，用于坐标边距计算
+    const approxFontSize = Math.floor(13 + Math.max(0, preCalcAvailableWidth - 350) / 60);
+
     // 计算额外边距，确保坐标数字完全显示（四边都需要）
-    const extraLeftMargin = showCoordinates ? Math.max(20, statsFontSize * 2) : 0; // 左侧额外边距
-    const extraRightMargin = showCoordinates ? Math.max(20, statsFontSize * 2) : 0; // 右侧额外边距
-    const extraTopMargin = showCoordinates ? Math.max(15, statsFontSize) : 0; // 顶部额外边距
-    const extraBottomMargin = showCoordinates ? Math.max(15, statsFontSize) : 0; // 底部额外边距
+    const extraLeftMargin = showCoordinates ? Math.max(20, approxFontSize * 2) : 0;
+    const extraRightMargin = showCoordinates ? Math.max(20, approxFontSize * 2) : 0;
+    const extraTopMargin = showCoordinates ? Math.max(15, approxFontSize) : 0;
+    const extraBottomMargin = showCoordinates ? Math.max(15, approxFontSize) : 0;
     
     // 计算网格尺寸
     const gridWidth = N * downloadCellSize;
     const gridHeight = M * downloadCellSize;
     
-    // 计算小红书标识区域的高度
-    const xiaohongshuAreaHeight = 35; // 为小红书名字预留的底部空间
+    // 计算底部留白区域高度
+    const bottomPadding = 35;
   
     // 计算标题栏高度（根据图片大小自动调整）
     const baseTitleBarHeight = 80; // 增大基础高度
@@ -282,47 +297,19 @@ export async function downloadImage({
     // 计算标题文字大小 - 与总体宽度相关而不是单元格大小
     const titleFontSize = Math.max(28, Math.floor(28 * titleBarScale)); // 最小28px，确保可读性
     
-    // 计算二维码大小
-    const qrSize = Math.floor(titleBarHeight * 0.85); // 增大二维码比例
-    
-    // 计算统计区域的大小
+    // 预估统计区域高度（用于初始画布大小，实际渲染后可能微调）
     if (includeStats && colorCounts) {
-      const colorKeys = Object.keys(colorCounts);
-      
-      // 统计区域顶部额外间距
-      const statsTopMargin = 24; // 与下方渲染时保持一致
-      
-      // 根据可用宽度动态计算列数
-      const numColumns = Math.max(1, Math.min(4, Math.floor(preCalcAvailableWidth / 250)));
-      
-      // 根据可用宽度动态计算样式参数，使用更积极的线性缩放
-      const baseSwatchSize = 18; // 略微增大基础大小
-      // baseStatsFontSize 和 statsFontSize 在前面已经计算了，这里不需要重复
-      // const baseItemPadding = 10;
-      
-      // 调整缩放公式，使大宽度更明显增大
-      // widthFactor 在前面已经计算了，这里不需要重复
-      const swatchSize = Math.floor(baseSwatchSize + (widthFactor * 20)); // 增大最大增量幅度
-      // statsFontSize 在前面已经计算了，这里不需要重复
-      // const itemPadding = Math.floor(baseItemPadding + (widthFactor * 12)); // 增大最大增量幅度 // 移除未使用的 itemPadding
-      
-      // 计算实际需要的行数
-      const numRows = Math.ceil(colorKeys.length / numColumns);
-      
-      // 计算单行高度 - 根据色块大小和内边距动态调整
-      const statsRowHeight = Math.max(swatchSize + 8, 25);
-      
-      // 标题和页脚高度
-      const titleHeight = 40; // 标题和分隔线的总高度
-      const footerHeight = 40; // 总计部分的高度
-      
-      // 计算统计区域的总高度 - 需要包含顶部间距
-      statsHeight = titleHeight + (numRows * statsRowHeight) + footerHeight + (statsPadding * 2) + statsTopMargin;
+      const numColors = Object.keys(colorCounts).length;
+      const estColumns = Math.max(1, Math.min(4, Math.floor(preCalcAvailableWidth / 280)));
+      const estRows = Math.ceil(numColors / estColumns);
+      const estScale = Math.max(1.0, preCalcAvailableWidth / 800);
+      const estRowHeight = Math.max(Math.floor(18 * estScale) + 12, 28);
+      statsHeight = 36 + (estRows * estRowHeight) + 60 + (statsPadding * 2) + 24; // title + rows + footer + padding + topMargin
     }
-  
-    // 调整画布大小，包含标题栏、坐标轴、统计区域和小红书标识区域（四边都有坐标）
+
+    // 调整画布大小，包含标题栏、坐标轴、统计区域和底部留白（四边都有坐标）
     const downloadWidth = gridWidth + (axisLabelSize * 2) + extraLeftMargin + extraRightMargin;
-    let downloadHeight = titleBarHeight + gridHeight + (axisLabelSize * 2) + statsHeight + extraTopMargin + extraBottomMargin + xiaohongshuAreaHeight;
+    let downloadHeight = titleBarHeight + gridHeight + (axisLabelSize * 2) + statsHeight + extraTopMargin + extraBottomMargin + bottomPadding;
   
     let downloadCanvas = document.createElement('canvas');
     downloadCanvas.width = downloadWidth;
@@ -398,7 +385,7 @@ export async function downloadImage({
     const titleStartX = brandBlockWidth + titleBarHeight * 0.3;
     const mainTitleY = titleBarHeight * 0.4;
     
-    ctx.fillText('七卡瓦', titleStartX, mainTitleY);
+    ctx.fillText('Juice拼豆', titleStartX, mainTitleY);
     
     // 5. 副标题 - 功能说明
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -418,38 +405,13 @@ export async function downloadImage({
     ctx.lineTo(downloadWidth, separatorY);
     ctx.stroke();
     
-    // 8. 二维码区域 - 重新设计
-    const qrX = downloadWidth - qrSize - titleBarHeight * 0.15;
-    const qrY = (titleBarHeight - qrSize) / 2;
-    
-    // 二维码背景 - 圆角，更现代
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.roundRect(qrX, qrY, qrSize, qrSize, qrSize * 0.08);
-    ctx.fill();
-    
-    // 绘制二维码图片或占位符
-    if (qrCodeImage.complete && qrCodeImage.naturalWidth !== 0) {
-      // 使用裁剪区域绘制圆角二维码
-      ctx.save();
-      ctx.beginPath();
-      ctx.roundRect(qrX, qrY, qrSize, qrSize, qrSize * 0.08);
-      ctx.clip();
-      ctx.drawImage(qrCodeImage, qrX, qrY, qrSize, qrSize);
-      ctx.restore();
-    } else {
-      // 占位符设计
-      ctx.fillStyle = '#6366F1';
-      const qrPlaceholderFontSize = Math.max(10, Math.floor(14 * titleBarScale));
-      ctx.font = `500 ${qrPlaceholderFontSize}px system-ui, -apple-system, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('扫码访问', qrX + qrSize / 2, qrY + qrSize / 2);
-    }
-  
-    console.log(`Generating download grid image: ${downloadWidth}x${downloadHeight}`);
-    const fontSize = Math.max(8, Math.floor(downloadCellSize * 0.4));
-    
+    // 标题右侧留白，使布局更简洁
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.font = `500 ${subTitleFontSize}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('perlerbeads.zippland.com', downloadWidth - titleBarHeight * 0.3, titleBarHeight / 2);
+
     // 如果需要，先绘制坐标轴和网格背景
     if (showCoordinates) {
       // 绘制坐标轴背景
@@ -546,8 +508,9 @@ export async function downloadImage({
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // 设置用于绘制单元格内容的字体
-    ctx.font = `bold ${fontSize}px sans-serif`;
+    // 设置用于绘制单元格内容的字体（使用系统现代字体栈，更清晰美观）
+    const labelFontSize = Math.max(7, Math.floor(downloadCellSize * 0.35));
+    ctx.font = `600 ${labelFontSize}px system-ui, -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -568,9 +531,16 @@ export async function downloadImage({
           ctx.fillRect(drawX, drawY, downloadCellSize, downloadCellSize);
 
           if (showCellNumbers) {
-            const cellKey = getDisplayColorKey(cellData.color || '#FFFFFF', selectedColorSystem);
-            ctx.fillStyle = getContrastColor(cellColor);
-            ctx.fillText(cellKey, drawX + downloadCellSize / 2, drawY + downloadCellSize / 2);
+            let cellKey = getDisplayColorKey(cellData.color || '#FFFFFF', selectedColorSystem);
+            // 如果色号太长（>4字符）且格子较小，截断显示
+            if (cellKey.length > 4 && downloadCellSize < 28) {
+              cellKey = cellKey.substring(0, 3) + String.fromCharCode(8230);
+            }
+            const textColor = getContrastColor(cellColor);
+            const outlineColor = textColor === '#1a1a1a' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.35)';
+            const centerX = drawX + downloadCellSize / 2;
+            const centerY = drawY + downloadCellSize / 2;
+            drawLabelWithOutline(ctx, cellKey, centerX, centerY, textColor, outlineColor);
           }
         } else {
           // 外部背景：填充白色
@@ -621,7 +591,7 @@ export async function downloadImage({
 
     // 副水印：放在网格左上角，简洁版本
     const secondaryWatermarkFontSize = Math.max(10, Math.floor(downloadCellSize * 0.5));
-    const secondaryText = '@七卡瓦';
+    const secondaryText = 'Juice拼豆';
     
     ctx.font = `500 ${secondaryWatermarkFontSize}px system-ui, -apple-system, sans-serif`;
     const secondaryMetrics = ctx.measureText(secondaryText);
@@ -653,113 +623,128 @@ export async function downloadImage({
     // 绘制统计信息
     if (includeStats && colorCounts) {
       const colorKeys = Object.keys(colorCounts).sort(sortColorKeys);
-      
+
       // 增加额外的间距，防止标题文字侵入画布
-      const statsTopMargin = 24; // 增加间距，防止文字侵入画布
+      const statsTopMargin = 24;
       const statsY = titleBarHeight + extraTopMargin + M * downloadCellSize + (axisLabelSize * 2) + statsPadding + statsTopMargin;
-      
+
       // 计算统计区域的可用宽度
       const availableStatsWidth = downloadWidth - (statsPadding * 2);
-      
-      // 根据可用宽度动态计算列数 - 这里使用实际渲染时的宽度
-      const renderNumColumns = Math.max(1, Math.min(4, Math.floor(availableStatsWidth / 250)));
-      
-      // 根据可用宽度动态计算样式参数，使用更积极的线性缩放
-      const baseSwatchSize = 18; // 略微增大基础大小
-      // baseStatsFontSize 和 statsFontSize 在前面已经计算了，这里不需要重复
-      // const baseItemPadding = 10;
-      
-      // 调整缩放公式，使大宽度更明显增大
-      // widthFactor 在前面已经计算了，这里不需要重复
-      const swatchSize = Math.floor(baseSwatchSize + (widthFactor * 20)); // 增大最大增量幅度
-      // statsFontSize 在前面已经计算了，这里不需要重复
-      // const itemPadding = Math.floor(baseItemPadding + (widthFactor * 12)); // 增大最大增量幅度 // 移除未使用的 itemPadding
-      
-      // 计算每个项目所占的宽度
+
+      // 根据可用宽度动态计算列数
+      const renderNumColumns = Math.max(1, Math.min(4, Math.floor(availableStatsWidth / 280)));
+
+      // 缩放因子
+      const scaleFactor = Math.max(1.0, availableStatsWidth / 800);
+      const swatchSize = Math.floor(18 * scaleFactor);
+      const itemFontSize = Math.floor(13 * scaleFactor);
+      const countFontSize = Math.floor(12 * scaleFactor);
+      const titleFontSize = Math.floor(16 * scaleFactor);
+
+      // 每项宽度
       const itemWidth = Math.floor(availableStatsWidth / renderNumColumns);
-      
+
       // 绘制统计区域标题
       ctx.fillStyle = '#333333';
-      ctx.font = `bold ${Math.max(16, statsFontSize)}px sans-serif`;
+      ctx.font = `bold ${titleFontSize}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'left';
-      
+      ctx.textBaseline = 'middle';
+      ctx.fillText('色号与用量', statsPadding, statsY + 10);
+
       // 绘制分隔线
       ctx.strokeStyle = '#DDDDDD';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(statsPadding, statsY + 20);
-      ctx.lineTo(downloadWidth - statsPadding, statsY + 20);
+      ctx.moveTo(statsPadding, statsY + 28);
+      ctx.lineTo(downloadWidth - statsPadding, statsY + 28);
       ctx.stroke();
-      
-      const titleHeight = 30; // 标题和分隔线的总高度
-      // 根据色块大小动态调整行高
-      const statsRowHeight = Math.max(swatchSize + 8, 25); // 确保行高足够放下色块和文字
-      
-      // 设置表格字体
-      ctx.font = `${statsFontSize}px sans-serif`;
-      
-      // 绘制每行统计信息
+
+      const titleAreaHeight = 36;
+      // 行高根据色块大小动态调整
+      const statsRowHeight = Math.max(swatchSize + 12, 28);
+
+      // 绘制每行统计信息 - 使用更清晰的布局: [色块] 色号  数量
       colorKeys.forEach((key, index) => {
-        // 计算当前项目应该在哪一行和哪一列
         const rowIndex = Math.floor(index / renderNumColumns);
         const colIndex = index % renderNumColumns;
-        
-        // 计算当前项目的X起始位置
-        const itemX = statsPadding + (colIndex * itemWidth);
-        
-        // 计算当前行的Y位置
-        const rowY = statsY + titleHeight + (rowIndex * statsRowHeight) + (swatchSize / 2);
-        
         const cellData = colorCounts[key];
-        
-        // 绘制色块
+
+        // 当前项的起始X
+        const itemX = statsPadding + (colIndex * itemWidth);
+        // 当前行的Y中心
+        const rowY = statsY + titleAreaHeight + (rowIndex * statsRowHeight) + (statsRowHeight / 2);
+
+        // 1. 绘制色块 (带圆角效果)
         ctx.fillStyle = cellData.color;
         ctx.strokeStyle = '#CCCCCC';
-        ctx.fillRect(itemX, rowY - (swatchSize / 2), swatchSize, swatchSize);
-        ctx.strokeRect(itemX + 0.5, rowY - (swatchSize / 2) + 0.5, swatchSize - 1, swatchSize - 1);
-        
-        // 绘制色号
-        ctx.fillStyle = '#333333';
+        ctx.lineWidth = 1;
+        const swatchX = itemX;
+        const swatchY = rowY - swatchSize / 2;
+        ctx.beginPath();
+        ctx.roundRect(swatchX, swatchY, swatchSize, swatchSize, Math.max(1, swatchSize * 0.15));
+        ctx.fill();
+        ctx.stroke();
+
+        // 2. 绘制色号 (左对齐，在色块右侧)
+        const codeX = swatchX + swatchSize + 8;
+        ctx.fillStyle = '#1F2937';
+        ctx.font = `600 ${itemFontSize}px system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'left';
-        ctx.fillText(getColorKeyByHex(key, selectedColorSystem), itemX + swatchSize + 5, rowY);
-        
-        // 绘制数量 - 在每个项目的右侧
-        const countText = `${cellData.count} 颗`;
-        ctx.textAlign = 'right';
-        
-        // 根据列数计算数字的位置
-        // 如果只有一列，就靠右绘制
-        if (renderNumColumns === 1) {
-          ctx.fillText(countText, downloadWidth - statsPadding, rowY);
-        } else {
-          // 多列时，在每个单元格右侧偏内绘制
-          ctx.fillText(countText, itemX + itemWidth - 10, rowY);
-        }
+        ctx.textBaseline = 'middle';
+        const displayKey = getColorKeyByHex(key, selectedColorSystem);
+        ctx.fillText(displayKey, codeX, rowY);
+
+        // 3. 绘制数量 (在色号之后，用更轻的字体)
+        const codeWidth = ctx.measureText(displayKey).width;
+        const countX = codeX + codeWidth + 12;
+        const countText = `${cellData.count}颗`;
+        ctx.fillStyle = '#6B7280';
+        ctx.font = `400 ${countFontSize}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(countText, countX, rowY);
       });
-      
+
       // 计算实际需要的行数
       const numRows = Math.ceil(colorKeys.length / renderNumColumns);
-      
+
+      // 绘制总量分隔线
+      const totalDividerY = statsY + titleAreaHeight + (numRows * statsRowHeight) + 6;
+      ctx.strokeStyle = '#E5E7EB';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(statsPadding, totalDividerY);
+      ctx.lineTo(downloadWidth - statsPadding, totalDividerY);
+      ctx.stroke();
+
       // 绘制总量
-      const totalY = statsY + titleHeight + (numRows * statsRowHeight) + 10;
-      ctx.font = `bold ${statsFontSize}px sans-serif`;
+      const totalY = totalDividerY + 20;
+      ctx.fillStyle = '#1F2937';
+      ctx.font = `bold ${itemFontSize}px system-ui, -apple-system, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('合计', statsPadding, totalY);
+
+      ctx.fillStyle = '#6B7280';
+      ctx.font = `400 ${countFontSize}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'right';
-      ctx.fillText(`总计: ${totalBeadCount} 颗`, downloadWidth - statsPadding, totalY);
-      
-      // 统计区域水印 - 第三重保护，清晰明显
-      const statsWatermarkFontSize = Math.max(10, Math.floor(statsFontSize * 0.7));
-      const statsWatermarkText = '图纸来源：小红书@七卡瓦';
-      
-      ctx.font = `500 ${statsWatermarkFontSize}px system-ui, -apple-system, sans-serif`;
+      ctx.fillText(`${totalBeadCount} 颗`, downloadWidth - statsPadding, totalY);
+
+      // 水印
+      const statsWatermarkFontSize = Math.max(10, Math.floor(itemFontSize * 0.7));
+      const statsWatermarkText = '图纸来源：Juice拼豆';
+
+      ctx.font = `400 ${statsWatermarkFontSize}px system-ui, -apple-system, sans-serif`;
       const statsTextMetrics = ctx.measureText(statsWatermarkText);
       const statsTextWidth = statsTextMetrics.width;
       const statsTextHeight = statsWatermarkFontSize;
-      
+
       const statsWatermarkX = statsPadding;
-      const statsWatermarkY = totalY + 20;
-      
+      const statsWatermarkY = totalY + 22;
+
       // 统计区域水印背景
-      const statsBgPadding = 5;
-      ctx.fillStyle = 'rgba(248, 250, 252, 0.9)'; // 浅灰背景，更柔和
+      const statsBgPadding = 4;
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.85)';
       ctx.beginPath();
       ctx.roundRect(
         statsWatermarkX - statsBgPadding,
@@ -769,27 +754,27 @@ export async function downloadImage({
         3
       );
       ctx.fill();
-      
+
       // 统计区域水印边框
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)';
       ctx.lineWidth = 1;
       ctx.stroke();
-      
+
       // 统计区域水印文字
-      ctx.fillStyle = '#64748B'; // 清晰的深灰色
+      ctx.fillStyle = '#94A3B8';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
       ctx.fillText(statsWatermarkText, statsWatermarkX, statsWatermarkY);
-      
-      // 更新统计区域高度的计算 - 需要包含新增的顶部间距
-      const footerHeight = 30; // 总计部分高度
-      statsHeight = titleHeight + (numRows * statsRowHeight) + footerHeight + (statsPadding * 2) + statsTopMargin;
+
+      // 更新统计区域高度
+      const footerAreaHeight = 60;
+      statsHeight = titleAreaHeight + (numRows * statsRowHeight) + footerAreaHeight + (statsPadding * 2) + statsTopMargin;
     }
 
     // 重新计算画布高度并调整
     if (includeStats && colorCounts) {
-      // 调整画布大小，包含计算后的统计区域和小红书标识区域
-      const newDownloadHeight = titleBarHeight + extraTopMargin + M * downloadCellSize + (axisLabelSize * 2) + statsHeight + extraBottomMargin + xiaohongshuAreaHeight;
+      // 调整画布大小，包含计算后的统计区域和底部留白
+      const newDownloadHeight = titleBarHeight + extraTopMargin + M * downloadCellSize + (axisLabelSize * 2) + statsHeight + extraBottomMargin + bottomPadding;
       
       if (downloadHeight !== newDownloadHeight) {
         // 如果高度变化了，需要创建新的画布并复制当前内容
@@ -839,14 +824,6 @@ export async function downloadImage({
     }
   };
   
-  // 图片加载后处理，或在加载失败时使用占位符
-  if (qrCodeImage.complete) {
-    processDownload();
-  } else {
-    qrCodeImage.onload = processDownload;
-    qrCodeImage.onerror = () => {
-      console.warn("二维码图片加载失败，将使用占位符");
-      processDownload();
-    };
-  }
-} 
+  // 直接执行下载处理
+  processDownload();
+}
