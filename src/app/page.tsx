@@ -93,10 +93,7 @@ export default function Home() {
   
   // 新增：色号系统选择状态
   const [selectedColorSystem, setSelectedColorSystem] = useState<ColorSystem>('MARD');
-  
-  const [activeBeadPalette, setActiveBeadPalette] = useState<PaletteColor[]>(() => {
-      return fullBeadPalette; // 默认使用全部颜色
-  });
+
   // 状态变量：存储被排除的颜色（hex值）
   const [excludedColorKeys, setExcludedColorKeys] = useState<Set<string>>(new Set());
   const [showExcludedColors, setShowExcludedColors] = useState<boolean>(false);
@@ -324,11 +321,6 @@ export default function Home() {
     return convertPaletteToColorSystem(filtered, selectedColorSystem);
   }, [fullBeadPalette, customPaletteSelections, excludedColorKeys, selectedColorSystem]);
 
-  // Keep activeBeadPalette in sync for downstream consumers
-  useEffect(() => {
-    setActiveBeadPalette(activePalette);
-  }, [activePalette]);
-
   // ++ 添加：当状态变化时同步更新输入框的值 ++
   useEffect(() => {
     setGranularityInput(granularity.toString());
@@ -473,26 +465,16 @@ export default function Home() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // 检查文件大小
-      const sizeCheck = checkFileSize(file.size);
-      if (!sizeCheck.ok) { alert(sizeCheck.message); return; }
-
-      // 对 CSV 文件额外检查大小
-      if (file.name.toLowerCase().endsWith('.csv')) {
-        const csvCheck = checkCsvSize(file.size);
-        if (!csvCheck.ok) { alert(csvCheck.message); return; }
-      }
-
       // 检查文件类型是否支持
       const fileName = file.name.toLowerCase();
       const fileType = file.type.toLowerCase();
       
-      // 支持的图片类型
+      // 支持的图片类型（白名单，不开放所有 image/*）
       const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
       // 支持的CSV MIME类型（不同浏览器可能返回不同的MIME类型）
       const supportedCsvTypes = ['text/csv', 'application/csv', 'text/plain'];
 
-      const isImageFile = supportedImageTypes.includes(fileType) || fileType.startsWith('image/');
+      const isImageFile = supportedImageTypes.includes(fileType);
       const isCsvFile = supportedCsvTypes.includes(fileType) || fileName.endsWith('.csv');
 
       if (isImageFile || isCsvFile) {
@@ -526,7 +508,7 @@ export default function Home() {
         // 支持的CSV MIME类型（不同浏览器可能返回不同的MIME类型）
         const supportedCsvTypes = ['text/csv', 'application/csv', 'text/plain'];
 
-        const isImageFile = supportedImageTypes.includes(fileType) || fileType.startsWith('image/');
+        const isImageFile = supportedImageTypes.includes(fileType);
         const isCsvFile = supportedCsvTypes.includes(fileType) || fileName.endsWith('.csv');
 
         if (isImageFile || isCsvFile) {
@@ -584,14 +566,35 @@ export default function Home() {
     return canvas.toDataURL('image/png');
   };
 
+  // 统一文件验证入口（handleFileChange + handleDrop + processFile 共用）
+  const validateIncomingFile = (file: File): string | null => {
+    const sizeErr = checkFileSize(file.size);
+    if (!sizeErr.ok) return sizeErr.message!;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext === 'csv') {
+      const csvErr = checkCsvSize(file.size);
+      if (!csvErr.ok) return csvErr.message!;
+    }
+    return null;
+  };
+
   const processFile = (file: File) => {
+    // 统一资源认证
+    const validationError = validateIncomingFile(file);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
     // 检查文件类型
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
     
     if (fileExtension === 'csv') {
       // 处理CSV文件
       console.log('正在导入CSV文件...');
-      importCsvData(file)
+      const allowedHex = new Set(fullBeadPalette.map(c => c.hex.toUpperCase()));
+      importCsvData(file, allowedHex)
         .then(({ mappedPixelData, gridDimensions }) => {
           console.log(`成功导入CSV文件: ${gridDimensions.N}x${gridDimensions.M}`);
           
@@ -665,14 +668,23 @@ export default function Home() {
       const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
 
       if (isGif) {
-        // GIF 走 createImageBitmap，规范保证返回首帧（default image），再烘焙为 PNG dataURL
+        // GIF 走 createImageBitmap，先检查解码尺寸再创建 Canvas
         createImageBitmap(file)
           .then((bitmap) => {
+            const pixelCheck = checkImagePixels(bitmap.width, bitmap.height);
+            if (!pixelCheck.ok) {
+              bitmap.close();
+              alert(pixelCheck.message!);
+              return;
+            }
             const canvas = document.createElement('canvas');
             canvas.width = bitmap.width;
             canvas.height = bitmap.height;
             const ctx = canvas.getContext('2d');
-            if (!ctx) throw new Error('无法创建 Canvas 上下文');
+            if (!ctx) {
+              bitmap.close();
+              throw new Error('无法创建 Canvas 上下文');
+            }
             ctx.drawImage(bitmap, 0, 0);
             bitmap.close();
             applyImageSrc(canvas.toDataURL('image/png'));
@@ -1075,7 +1087,7 @@ export default function Home() {
           colorCounts,
           totalBeadCount,
           options: options || downloadOptions,
-          activeBeadPalette,
+          activeBeadPalette: activePalette,
           selectedColorSystem
         });
     };
@@ -1984,7 +1996,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-[#dce5e2] bg-white p-4 shadow-sm"><div className="mb-3 flex items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-[#17201f]">色板</h2><p className="mt-1 text-xs text-[#6f7d7b]">当前启用 {selectedPaletteCount || activeBeadPalette.length} 色</p></div>{isCustomPalette ? <span className="rounded-full bg-[#fff7dd] px-2 py-1 text-[11px] text-[#8a6414]">自定义</span> : null}</div><div className="grid grid-cols-2 gap-2">{colorSystemOptions.map((option) => <button key={option.key} type="button" onClick={() => setSelectedColorSystem(option.key as ColorSystem)} className={'h-9 rounded-md border text-xs font-medium transition ' + (selectedColorSystem === option.key ? 'border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]' : 'border-[#d2dedb] bg-white text-[#5d6b69] hover:bg-[#f7fbfa]')}>{option.name}</button>)}</div><div className="mt-3 grid grid-cols-3 gap-2"><button type="button" onClick={() => setIsCustomPaletteEditorOpen(true)} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]">编辑</button><button type="button" onClick={handleExportCustomPalette} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]">导出</button><button type="button" onClick={triggerImportPalette} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]">导入</button></div></section>
+          <section className="rounded-lg border border-[#dce5e2] bg-white p-4 shadow-sm"><div className="mb-3 flex items-start justify-between gap-3"><div><h2 className="text-sm font-semibold text-[#17201f]">色板</h2><p className="mt-1 text-xs text-[#6f7d7b]">当前启用 {selectedPaletteCount || activePalette.length} 色</p></div>{isCustomPalette ? <span className="rounded-full bg-[#fff7dd] px-2 py-1 text-[11px] text-[#8a6414]">自定义</span> : null}</div><div className="grid grid-cols-2 gap-2">{colorSystemOptions.map((option) => <button key={option.key} type="button" onClick={() => setSelectedColorSystem(option.key as ColorSystem)} className={'h-9 rounded-md border text-xs font-medium transition ' + (selectedColorSystem === option.key ? 'border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]' : 'border-[#d2dedb] bg-white text-[#5d6b69] hover:bg-[#f7fbfa]')}>{option.name}</button>)}</div><div className="mt-3 grid grid-cols-3 gap-2"><button type="button" onClick={() => setIsCustomPaletteEditorOpen(true)} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]">编辑</button><button type="button" onClick={handleExportCustomPalette} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]">导出</button><button type="button" onClick={triggerImportPalette} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]">导入</button></div></section>
         </aside>
 
         <section data-canvas-stage className="min-h-[calc(100vh-104px)] rounded-lg border border-[#dce5e2] bg-white shadow-sm"><div className="flex min-h-full flex-col"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4ece9] px-4 py-3"><div><h2 className="text-sm font-semibold text-[#17201f]">图纸画布</h2><p className="mt-1 text-xs text-[#6f7d7b]">{gridDimensions ? gridDimensions.N + ' x ' + gridDimensions.M + ' 格 · ' + totalBeadCount + ' 颗 · ' + colorCountEntries.length + ' 色' : '导入源图后在这里查看拼豆图纸'}</p></div><div className="flex items-center gap-2"><button type="button" onClick={() => setIsManualColoringMode(!isManualColoringMode)} disabled={!chartReady} className={'h-9 rounded-md border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ' + (isManualColoringMode ? 'border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]' : 'border-[#d2dedb] bg-white text-[#3b4947] hover:bg-[#f7fbfa]')}>{isManualColoringMode ? '退出编辑' : '编辑颜色'}</button><div className="flex items-center gap-1"><button type="button" onClick={() => setCanvasZoom(Math.max(0.5, canvasZoom - 0.25))} disabled={!chartReady} className="h-8 w-8 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45" title="缩小">−</button><span className="w-12 text-center text-xs font-mono text-[#1f7669]">{Math.round(canvasZoom * 100)}%</span><button type="button" onClick={() => setCanvasZoom(Math.min(3, canvasZoom + 0.25))} disabled={!chartReady} className="h-8 w-8 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45" title="放大">+</button><button type="button" onClick={() => setCanvasZoom(1)} disabled={!chartReady || canvasZoom === 1} className="h-8 rounded-md border border-[#d2dedb] bg-white px-2 text-[11px] font-medium text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45">1:1</button></div><button type="button" onClick={handleEnterFocusMode} disabled={!chartReady} className="h-9 rounded-md border border-[#d2dedb] bg-white px-3 text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45">专心拼豆</button></div></div><div className="relative flex flex-1 items-center justify-center overflow-auto bg-[linear-gradient(90deg,#edf2f1_1px,transparent_1px),linear-gradient(#edf2f1_1px,transparent_1px)] bg-[length:24px_24px] p-4 sm:p-6"><canvas ref={originalCanvasRef} className="hidden" />{chartReady ? <div className="relative rounded-md border border-[#cfdedb] bg-white p-2 shadow-sm"><PixelatedPreviewCanvas mappedPixelData={mappedPixelData} gridDimensions={gridDimensions} isManualColoringMode={isManualColoringMode} canvasRef={pixelatedCanvasRef} canvasWidth={pixelatedCanvasSize?.width} canvasHeight={pixelatedCanvasSize?.height} zoom={canvasZoom} onInteraction={handleCanvasInteraction} highlightColorKey={highlightColorKey} onHighlightComplete={handleHighlightComplete} /><GridTooltip tooltipData={tooltipData} selectedColorSystem={selectedColorSystem} /></div> : <div className="flex max-w-md flex-col items-center text-center"><div className="mb-5 grid h-28 w-28 grid-cols-7 gap-1 rounded-lg border border-[#dce5e2] bg-white p-3 shadow-sm">{Array.from({ length: 49 }).map((_, index) => <span key={index} className="rounded-[2px]" style={{ backgroundColor: index % 7 === 0 ? '#1f9d8a' : index % 5 === 0 ? '#f2cf5b' : index % 4 === 0 ? '#ef7b67' : '#e5ecea' }} />)}</div><h3 className="text-lg font-semibold text-[#17201f]">从一张图片开始生成拼豆图纸</h3><p className="mt-2 text-sm leading-6 text-[#6f7d7b]">左侧导入源图，设定颗粒宽度和色板后，画布会显示可编辑的拼豆网格。</p><button type="button" onClick={isMounted ? triggerFileInput : undefined} disabled={!isMounted} className="mt-5 h-10 rounded-md bg-[#1f9d8a] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#188775] disabled:cursor-not-allowed disabled:bg-[#a7c9c3]">导入图片</button></div>}</div><div data-action-bar className="grid gap-2 border-t border-[#e4ece9] bg-[#fbfdfc] px-4 py-3 sm:grid-cols-5"><div className="flex items-center gap-1"><button type="button" onClick={() => handleShiftCanvas('left')} disabled={!chartReady} className="h-9 w-9 rounded-md border border-[#d2dedb] bg-white text-sm font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45" title="向左移动">←</button><button type="button" onClick={() => handleShiftCanvas('up')} disabled={!chartReady} className="h-9 w-9 rounded-md border border-[#d2dedb] bg-white text-sm font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45" title="向上移动">↑</button><button type="button" onClick={() => handleShiftCanvas('down')} disabled={!chartReady} className="h-9 w-9 rounded-md border border-[#d2dedb] bg-white text-sm font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45" title="向下移动">↓</button><button type="button" onClick={() => handleShiftCanvas('right')} disabled={!chartReady} className="h-9 w-9 rounded-md border border-[#d2dedb] bg-white text-sm font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45" title="向右移动">→</button></div><button type="button" onClick={handleAutoRemoveBackground} disabled={!chartReady} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45">去除背景</button><button type="button" onClick={handleUndoBgRemoval} disabled={!bgRemovalSnapshot} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45">撤回背景</button><button type="button" onClick={handleUndoEdit} disabled={editHistory.length === 0} className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45">撤回编辑</button><button type="button" onClick={() => setIsDownloadSettingsOpen(true)} disabled={!chartReady} className="h-9 rounded-md bg-[#17201f] text-xs font-semibold text-white transition hover:bg-[#2c3836] disabled:cursor-not-allowed disabled:bg-[#a9b5b2]">导出文件</button></div></div></section>

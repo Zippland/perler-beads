@@ -6,8 +6,9 @@ const root = process.cwd();
 const page = readFileSync(join(root, 'src/app/page.tsx'), 'utf8');
 const layout = readFileSync(join(root, 'src/app/layout.tsx'), 'utf8');
 const completionCard = readFileSync(join(root, 'src/components/CompletionCard.tsx'), 'utf8');
+const imageDownloader = readFileSync(join(root, 'src/utils/imageDownloader.ts'), 'utf8');
 
-const combined = `${page}\n${layout}\n${completionCard}`;
+const combined = `${page}\n${layout}\n${completionCard}\n${imageDownloader}`;
 
 const forbidden = [
   '七卡瓦',

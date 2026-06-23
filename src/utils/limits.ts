@@ -5,7 +5,7 @@ export const LIMITS = {
   maxGridHeight: 300,
   maxGridCells: 90_000,                   // 300 × 300
   maxCsvBytes: 4 * 1024 * 1024,          // 4MB
-  maxExportPixels: 80_000_000,            // 80MP
+  maxExportPixels: 32_000_000,            // 32MP (RGBA ~128MB, device-safe)
 } as const;
 
 export type LimitCheck = {

@@ -1,7 +1,7 @@
 import { GridDownloadOptions } from '../types/downloadTypes';
 import { MappedPixel, PaletteColor } from './pixelation';
 import { getDisplayColorKey, getColorKeyByHex, ColorSystem } from './colorSystemUtils';
-import { checkExportPixels } from './limits';
+import { checkExportPixels, checkGridSize } from './limits';
 
 // 用于获取对比色的工具函数 - 改进版，带文字描边效果
 function getContrastColor(hex: string): string {
@@ -127,13 +127,13 @@ export function exportCsvData({
 }
 
 // 导入CSV hex数据的函数
-export function importCsvData(file: File): Promise<{
+export function importCsvData(file: File, allowedHexColors?: Set<string>): Promise<{
   mappedPixelData: MappedPixel[][];
   gridDimensions: { N: number; M: number };
 }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       try {
         const text = e.target?.result as string;
@@ -154,28 +154,35 @@ export function importCsvData(file: File): Promise<{
         // 解析第一行获取列数
         const firstRowData = lines[0].split(',');
         const N = firstRowData.length; // 列数
-        
+
         if (N === 0) {
           reject(new Error('CSV文件格式无效'));
           return;
         }
-        
+
+        // 检查网格尺寸上限
+        const gridCheck = checkGridSize(N, M);
+        if (!gridCheck.ok) {
+          reject(new Error(gridCheck.message!));
+          return;
+        }
+
         // 创建映射数据
         const mappedPixelData: MappedPixel[][] = [];
-        
+
         for (let row = 0; row < M; row++) {
           const rowData = lines[row].split(',');
           const mappedRow: MappedPixel[] = [];
-          
+
           // 确保每行都有正确的列数
           if (rowData.length !== N) {
             reject(new Error(`第${row + 1}行的列数不匹配，期望${N}列，实际${rowData.length}列`));
             return;
           }
-          
+
           for (let col = 0; col < N; col++) {
             const cellValue = rowData[col].trim();
-            
+
             if (cellValue === 'TRANSPARENT' || cellValue === '') {
               // 外部/透明单元格
               mappedRow.push({
@@ -190,7 +197,13 @@ export function importCsvData(file: File): Promise<{
                 reject(new Error(`第${row + 1}行第${col + 1}列的颜色值无效：${cellValue}`));
                 return;
               }
-              
+
+              // 验证颜色是否在物理色板中
+              if (allowedHexColors && !allowedHexColors.has(cellValue.toUpperCase())) {
+                reject(new Error(`第${row + 1}行第${col + 1}列不在当前色板中：${cellValue}。请使用支持的色号重新导出。`));
+                return;
+              }
+
               // 内部单元格
               mappedRow.push({
                 key: cellValue.toUpperCase(),
@@ -199,7 +212,7 @@ export function importCsvData(file: File): Promise<{
               });
             }
           }
-          
+
           mappedPixelData.push(mappedRow);
         }
         
@@ -410,12 +423,12 @@ export async function downloadImage({
     ctx.lineTo(downloadWidth, separatorY);
     ctx.stroke();
     
-    // 标题右侧留白，使布局更简洁
+    // 标题右侧留白
     ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.font = `500 ${subTitleFontSize}px system-ui, -apple-system, sans-serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText('perlerbeads.zippland.com', downloadWidth - titleBarHeight * 0.3, titleBarHeight / 2);
+    ctx.fillText('Juice拼豆', downloadWidth - titleBarHeight * 0.3, titleBarHeight / 2);
 
     // 如果需要，先绘制坐标轴和网格背景
     if (showCoordinates) {
