@@ -8,8 +8,10 @@
     "start": "node .next/standalone/server.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
     "verify:ui-contract": "node scripts/verify-ui-contract.mjs",
-    "check": "npm run typecheck && npm run lint && npm run verify:ui-contract && npm run build",
+    "check": "npm run typecheck && npm run test && npm run lint && npm run verify:ui-contract && npm run build",
     "healthz": "node -e \"require('http').get('http://localhost:3000/api/healthz', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>{ console.log(d); process.exit(r.statusCode===200?0:1); }); })\""
   },
   "dependencies": {
@@ -21,6 +23,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -29,6 +32,7 @@
     "eslint-config-next": "15.3.6",
     "sharp": "^0.34.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }

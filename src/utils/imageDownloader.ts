@@ -2,6 +2,7 @@ import { GridDownloadOptions } from '../types/downloadTypes';
 import { MappedPixel, PaletteColor } from './pixelation';
 import { getDisplayColorKey, getColorKeyByHex, ColorSystem } from './colorSystemUtils';
 import { checkExportPixels, checkGridSize } from './limits';
+import { BoardPlan } from '../domain/boards/boardPlan';
 
 // 用于获取对比色的工具函数 - 改进版，带文字描边效果
 function getContrastColor(hex: string): string {
@@ -68,6 +69,131 @@ function sortColorKeys(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
+function downloadBlob(blob: Blob, filename: string): void {
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = filename;
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function drawBoardSheetPng(input: {
+  mappedPixelData: MappedPixel[][];
+  board: BoardPlan['boards'][number];
+  selectedColorSystem: ColorSystem;
+  boardSize: 52 | 104;
+}): void {
+  const { mappedPixelData, board, selectedColorSystem, boardSize } = input;
+  const cellSize = 28;
+  const axis = 34;
+  const titleHeight = 54;
+  const width = board.usedWidth * cellSize + axis * 2;
+  const height = titleHeight + board.usedHeight * cellSize + axis * 2;
+  const exportCheck = checkExportPixels(width, height);
+  if (!exportCheck.ok) {
+    alert(exportCheck.message);
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = '#1F2937';
+  ctx.fillRect(0, 0, width, titleHeight);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '600 18px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(
+    `${board.id} · ${boardSize} 钉板 · C${board.gridStartColumn + 1}-C${board.gridEndColumnExclusive}, R${board.gridStartRow + 1}-R${board.gridEndRowExclusive}`,
+    16,
+    titleHeight / 2,
+  );
+
+  const gridX = axis;
+  const gridY = titleHeight + axis;
+
+  ctx.font = '12px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#374151';
+  for (let col = 0; col < board.usedWidth; col++) {
+    const globalCol = board.gridStartColumn + col + 1;
+    if (globalCol === 1 || globalCol % 10 === 0 || col === board.usedWidth - 1) {
+      ctx.fillText(String(globalCol), gridX + col * cellSize + cellSize / 2, titleHeight + axis / 2);
+      ctx.fillText(String(globalCol), gridX + col * cellSize + cellSize / 2, gridY + board.usedHeight * cellSize + axis / 2);
+    }
+  }
+  for (let row = 0; row < board.usedHeight; row++) {
+    const globalRow = board.gridStartRow + row + 1;
+    if (globalRow === 1 || globalRow % 10 === 0 || row === board.usedHeight - 1) {
+      ctx.fillText(String(globalRow), axis / 2, gridY + row * cellSize + cellSize / 2);
+      ctx.fillText(String(globalRow), gridX + board.usedWidth * cellSize + axis / 2, gridY + row * cellSize + cellSize / 2);
+    }
+  }
+
+  ctx.font = '600 10px system-ui, -apple-system, sans-serif';
+  for (let row = 0; row < board.usedHeight; row++) {
+    for (let col = 0; col < board.usedWidth; col++) {
+      const cell = mappedPixelData[board.gridStartRow + row]?.[board.gridStartColumn + col];
+      const x = gridX + col * cellSize;
+      const y = gridY + row * cellSize;
+      ctx.fillStyle = cell && !cell.isExternal ? cell.color : '#FFFFFF';
+      ctx.fillRect(x, y, cellSize, cellSize);
+      ctx.strokeStyle = '#DDDDDD';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x + 0.5, y + 0.5, cellSize, cellSize);
+      if (cell && !cell.isExternal) {
+        const label = getDisplayColorKey(cell.color, selectedColorSystem);
+        drawLabelWithOutline(ctx, label.length > 4 ? label.slice(0, 3) + '…' : label, x + cellSize / 2, y + cellSize / 2, getContrastColor(cell.color), 'rgba(255,255,255,0.7)');
+      }
+    }
+  }
+
+  ctx.strokeStyle = '#8EA19D';
+  ctx.lineWidth = 1.5;
+  for (let col = 10; col < board.usedWidth; col += 10) {
+    const x = gridX + col * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(x, gridY);
+    ctx.lineTo(x, gridY + board.usedHeight * cellSize);
+    ctx.stroke();
+  }
+  for (let row = 10; row < board.usedHeight; row += 10) {
+    const y = gridY + row * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(gridX, y);
+    ctx.lineTo(gridX + board.usedWidth * cellSize, y);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = '#B45309';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(gridX, gridY, board.usedWidth * cellSize, board.usedHeight * cellSize);
+
+  downloadBlob(
+    new Blob([dataUrlToBytes(canvas.toDataURL('image/png'))], { type: 'image/png' }),
+    `board-${board.id}.png`,
+  );
+}
+
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const base64 = dataUrl.split(',')[1] ?? '';
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 // 导出CSV hex数据的函数
 export function exportCsvData({
   mappedPixelData,
@@ -126,6 +252,92 @@ export function exportCsvData({
   console.log("CSV数据导出完成");
 }
 
+export function parseCsvText(
+  text: string,
+  options: { allowedHexColors?: Set<string> } = {},
+): {
+  mappedPixelData: MappedPixel[][];
+  gridDimensions: { N: number; M: number };
+} {
+  if (!text) {
+    throw new Error('无法读取文件内容');
+  }
+
+  const lines = text.trim().split('\n');
+  const M = lines.length;
+
+  if (M === 0) {
+    throw new Error('CSV文件为空');
+  }
+
+  const firstRowData = lines[0].split(',');
+  const N = firstRowData.length;
+
+  if (N === 0) {
+    throw new Error('CSV文件格式无效');
+  }
+
+  const gridCheck = checkGridSize(N, M);
+  if (!gridCheck.ok) {
+    throw new Error(gridCheck.message!);
+  }
+
+  const allowedHexColors = options.allowedHexColors
+    ? new Set(Array.from(options.allowedHexColors, (hex) => hex.toUpperCase()))
+    : undefined;
+  const mappedPixelData: MappedPixel[][] = [];
+
+  for (let row = 0; row < M; row++) {
+    const rowData = lines[row].split(',');
+    const mappedRow: MappedPixel[] = [];
+
+    if (rowData.length !== N) {
+      throw new Error(`第${row + 1}行的列数不匹配，期望${N}列，实际${rowData.length}列`);
+    }
+
+    for (let col = 0; col < N; col++) {
+      const cellValue = rowData[col].trim();
+
+      if (cellValue === 'TRANSPARENT' || cellValue === '') {
+        mappedRow.push({
+          key: 'TRANSPARENT',
+          color: '#FFFFFF',
+          isExternal: true,
+        });
+        continue;
+      }
+
+      const hexPattern = /^#[0-9A-Fa-f]{6}$/;
+      if (!hexPattern.test(cellValue)) {
+        throw new Error(`第${row + 1}行第${col + 1}列的颜色值无效：${cellValue}`);
+      }
+
+      const normalizedHex = cellValue.toUpperCase();
+      if (allowedHexColors && !allowedHexColors.has(normalizedHex)) {
+        throw new Error(`第${row + 1}行第${col + 1}列不在当前色板中：${cellValue}。请使用支持的色号重新导出。`);
+      }
+
+      const mardKey = getColorKeyByHex(normalizedHex, 'MARD');
+      if (mardKey === '?') {
+        throw new Error(`第${row + 1}行第${col + 1}列的颜色在当前色号映射中不存在：${cellValue}`);
+      }
+
+      mappedRow.push({
+        key: mardKey,
+        color: normalizedHex,
+        isExternal: false,
+      });
+    }
+
+    mappedPixelData.push(mappedRow);
+  }
+
+  return {
+    mappedPixelData,
+    gridDimensions: { N, M },
+  };
+}
+
 // 导入CSV hex数据的函数
 export function importCsvData(file: File, allowedHexColors?: Set<string>): Promise<{
   mappedPixelData: MappedPixel[][];
@@ -137,90 +349,7 @@ export function importCsvData(file: File, allowedHexColors?: Set<string>): Promi
     reader.onload = (e) => {
       try {
         const text = e.target?.result as string;
-        if (!text) {
-          reject(new Error('无法读取文件内容'));
-          return;
-        }
-        
-        // 解析CSV内容
-        const lines = text.trim().split('\n');
-        const M = lines.length; // 行数
-        
-        if (M === 0) {
-          reject(new Error('CSV文件为空'));
-          return;
-        }
-        
-        // 解析第一行获取列数
-        const firstRowData = lines[0].split(',');
-        const N = firstRowData.length; // 列数
-
-        if (N === 0) {
-          reject(new Error('CSV文件格式无效'));
-          return;
-        }
-
-        // 检查网格尺寸上限
-        const gridCheck = checkGridSize(N, M);
-        if (!gridCheck.ok) {
-          reject(new Error(gridCheck.message!));
-          return;
-        }
-
-        // 创建映射数据
-        const mappedPixelData: MappedPixel[][] = [];
-
-        for (let row = 0; row < M; row++) {
-          const rowData = lines[row].split(',');
-          const mappedRow: MappedPixel[] = [];
-
-          // 确保每行都有正确的列数
-          if (rowData.length !== N) {
-            reject(new Error(`第${row + 1}行的列数不匹配，期望${N}列，实际${rowData.length}列`));
-            return;
-          }
-
-          for (let col = 0; col < N; col++) {
-            const cellValue = rowData[col].trim();
-
-            if (cellValue === 'TRANSPARENT' || cellValue === '') {
-              // 外部/透明单元格
-              mappedRow.push({
-                key: 'TRANSPARENT',
-                color: '#FFFFFF',
-                isExternal: true
-              });
-            } else {
-              // 验证hex颜色格式
-              const hexPattern = /^#[0-9A-Fa-f]{6}$/;
-              if (!hexPattern.test(cellValue)) {
-                reject(new Error(`第${row + 1}行第${col + 1}列的颜色值无效：${cellValue}`));
-                return;
-              }
-
-              // 验证颜色是否在物理色板中
-              if (allowedHexColors && !allowedHexColors.has(cellValue.toUpperCase())) {
-                reject(new Error(`第${row + 1}行第${col + 1}列不在当前色板中：${cellValue}。请使用支持的色号重新导出。`));
-                return;
-              }
-
-              // 内部单元格
-              mappedRow.push({
-                key: cellValue.toUpperCase(),
-                color: cellValue.toUpperCase(),
-                isExternal: false
-              });
-            }
-          }
-
-          mappedPixelData.push(mappedRow);
-        }
-        
-        // 返回解析结果
-        resolve({
-          mappedPixelData,
-          gridDimensions: { N, M }
-        });
+        resolve(parseCsvText(text, { allowedHexColors }));
         
       } catch (error) {
         reject(new Error(`解析CSV文件失败：${error}`));
@@ -243,7 +372,9 @@ export async function downloadImage({
   totalBeadCount,
   options,
   activeBeadPalette,
-  selectedColorSystem
+  selectedColorSystem,
+  boardPlan,
+  inventoryPresetId,
 }: {
   mappedPixelData: MappedPixel[][] | null;
   gridDimensions: { N: number; M: number } | null;
@@ -252,6 +383,8 @@ export async function downloadImage({
   options: GridDownloadOptions;
   activeBeadPalette: PaletteColor[];
   selectedColorSystem: ColorSystem;
+  boardPlan?: BoardPlan | null;
+  inventoryPresetId?: string;
 }): Promise<void> {
   if (!mappedPixelData || !gridDimensions || gridDimensions.N === 0 || gridDimensions.M === 0 || activeBeadPalette.length === 0) {
     console.error("下载失败: 映射数据或尺寸无效。");
@@ -838,6 +971,36 @@ export async function downloadImage({
           mappedPixelData,
           gridDimensions,
           selectedColorSystem
+        });
+      }
+
+      if (boardPlan) {
+        const manifest = {
+          version: 1,
+          generatedAt: new Date().toISOString(),
+          grid: gridDimensions,
+          inventoryPresetId,
+          selectedColorSystem,
+          boardPlan,
+          bom: Object.entries(colorCounts).map(([hex, data]) => ({
+            mardCode: activeBeadPalette.find((color) => color.hex.toUpperCase() === hex.toUpperCase())?.key ?? null,
+            displayCode: getColorKeyByHex(hex, selectedColorSystem),
+            hex,
+            count: data.count,
+            percentage: totalBeadCount === 0 ? 0 : data.count / totalBeadCount,
+          })),
+        };
+        downloadBlob(
+          new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json;charset=utf-8' }),
+          'manifest.json',
+        );
+        boardPlan.boards.forEach((board) => {
+          drawBoardSheetPng({
+            mappedPixelData,
+            board,
+            selectedColorSystem,
+            boardSize: boardPlan.boardSize,
+          });
         });
       }
     } catch (e) {
