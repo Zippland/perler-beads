@@ -29,7 +29,7 @@ export const RETAIL_TIER_WARNING =
 export const MARD_INVENTORY_PRESETS: readonly MardInventoryPreset[] = [
   {
     id: 'mard-full',
-    label: 'MARD 全 291 色',
+    label: 'MARD 全色',
     expectedColorCount: 291,
     mardCodes: MARD_CATALOG_CODES,
     source: 'mard_palette_dataset_2026-06-24',
@@ -37,7 +37,7 @@ export const MARD_INVENTORY_PRESETS: readonly MardInventoryPreset[] = [
   },
   {
     id: 'mard-core',
-    label: 'MARD 核心 221 色',
+    label: 'MARD 核心色',
     expectedColorCount: 221,
     mardCodes: MARD_CORE_221_CODES,
     source: 'mard_palette_dataset_2026-06-24',
@@ -45,7 +45,7 @@ export const MARD_INVENTORY_PRESETS: readonly MardInventoryPreset[] = [
   },
   {
     id: 'mard-custom',
-    label: '自定义',
+    label: '我的库存',
     expectedColorCount: 0,
     mardCodes: [],
     source: 'user-defined',

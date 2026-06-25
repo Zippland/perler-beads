@@ -69,24 +69,12 @@ function sortColorKeys(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
-function downloadBlob(blob: Blob, filename: string): void {
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.href = url;
-  link.download = filename;
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
-function drawBoardSheetPng(input: {
+export function createBoardSheetPngBlob(input: {
   mappedPixelData: MappedPixel[][];
   board: BoardPlan['boards'][number];
   selectedColorSystem: ColorSystem;
   boardSize: 52 | 104;
-}): void {
+}): Blob | null {
   const { mappedPixelData, board, selectedColorSystem, boardSize } = input;
   const cellSize = 28;
   const axis = 34;
@@ -96,14 +84,14 @@ function drawBoardSheetPng(input: {
   const exportCheck = checkExportPixels(width, height);
   if (!exportCheck.ok) {
     alert(exportCheck.message);
-    return;
+    return null;
   }
 
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) return null;
 
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
@@ -180,10 +168,7 @@ function drawBoardSheetPng(input: {
   ctx.lineWidth = 2;
   ctx.strokeRect(gridX, gridY, board.usedWidth * cellSize, board.usedHeight * cellSize);
 
-  downloadBlob(
-    new Blob([dataUrlToBytes(canvas.toDataURL('image/png'))], { type: 'image/png' }),
-    `board-${board.id}.png`,
-  );
+  return new Blob([dataUrlToBytes(canvas.toDataURL('image/png'))], { type: 'image/png' });
 }
 
 function dataUrlToBytes(dataUrl: string): Uint8Array {
@@ -194,20 +179,15 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return bytes;
 }
 
-// 导出CSV hex数据的函数
-export function exportCsvData({
+export function serializeCsvText({
   mappedPixelData,
   gridDimensions,
-  selectedColorSystem
 }: {
   mappedPixelData: MappedPixel[][] | null;
   gridDimensions: { N: number; M: number } | null;
-  selectedColorSystem: ColorSystem;
-}): void {
+}): string {
   if (!mappedPixelData || !gridDimensions) {
-    console.error("导出失败: 映射数据或尺寸无效。");
-    alert("无法导出CSV，数据未生成或无效。");
-    return;
+    throw new Error("无法导出CSV，数据未生成或无效。");
   }
 
   const { N, M } = gridDimensions;
@@ -230,8 +210,29 @@ export function exportCsvData({
     csvLines.push(rowData.join(','));
   }
 
-  // 创建CSV内容
-  const csvContent = csvLines.join('\n');
+  return csvLines.join('\n');
+}
+
+// 导出CSV hex数据的函数
+export function exportCsvData({
+  mappedPixelData,
+  gridDimensions,
+  selectedColorSystem
+}: {
+  mappedPixelData: MappedPixel[][] | null;
+  gridDimensions: { N: number; M: number } | null;
+  selectedColorSystem: ColorSystem;
+}): void {
+  let csvContent: string;
+  try {
+    csvContent = serializeCsvText({ mappedPixelData, gridDimensions });
+  } catch (error) {
+    console.error("导出失败: 映射数据或尺寸无效。", error);
+    alert("无法导出CSV，数据未生成或无效。");
+    return;
+  }
+
+  const { N, M } = gridDimensions!;
   
   // 创建并下载CSV文件
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -250,6 +251,146 @@ export function exportCsvData({
   URL.revokeObjectURL(url);
   
   console.log("CSV数据导出完成");
+}
+
+export function createPrintChartPngBlob(input: {
+  mappedPixelData: MappedPixel[][];
+  gridDimensions: { N: number; M: number };
+  colorCounts: { [key: string]: { count: number; color: string } };
+  totalBeadCount: number;
+  selectedColorSystem: ColorSystem;
+}): Blob | null {
+  const {
+    mappedPixelData,
+    gridDimensions,
+    colorCounts,
+    totalBeadCount,
+    selectedColorSystem,
+  } = input;
+  const { N, M } = gridDimensions;
+  const cellSize = 28;
+  const axis = 34;
+  const titleHeight = 58;
+  const statsPadding = 20;
+  const colorRows = Math.ceil(Object.keys(colorCounts).length / 3);
+  const statsHeight = 70 + colorRows * 26;
+  const width = N * cellSize + axis * 2;
+  const height = titleHeight + M * cellSize + axis * 2 + statsHeight;
+  const exportCheck = checkExportPixels(width, height);
+  if (!exportCheck.ok) {
+    alert(exportCheck.message);
+    return null;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = '#1F2937';
+  ctx.fillRect(0, 0, width, titleHeight);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '600 20px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`Juice拼豆 · ${N} x ${M}`, 18, titleHeight / 2);
+
+  const gridX = axis;
+  const gridY = titleHeight + axis;
+
+  ctx.font = '12px system-ui, -apple-system, sans-serif';
+  ctx.fillStyle = '#374151';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let col = 0; col < N; col++) {
+    if (col === 0 || (col + 1) % 10 === 0 || col === N - 1) {
+      const x = gridX + col * cellSize + cellSize / 2;
+      ctx.fillText(String(col + 1), x, titleHeight + axis / 2);
+      ctx.fillText(String(col + 1), x, gridY + M * cellSize + axis / 2);
+    }
+  }
+  for (let row = 0; row < M; row++) {
+    if (row === 0 || (row + 1) % 10 === 0 || row === M - 1) {
+      const y = gridY + row * cellSize + cellSize / 2;
+      ctx.fillText(String(row + 1), axis / 2, y);
+      ctx.fillText(String(row + 1), gridX + N * cellSize + axis / 2, y);
+    }
+  }
+
+  ctx.font = '600 10px system-ui, -apple-system, sans-serif';
+  for (let row = 0; row < M; row++) {
+    for (let col = 0; col < N; col++) {
+      const cell = mappedPixelData[row]?.[col];
+      const x = gridX + col * cellSize;
+      const y = gridY + row * cellSize;
+      ctx.fillStyle = cell && !cell.isExternal ? cell.color : '#FFFFFF';
+      ctx.fillRect(x, y, cellSize, cellSize);
+      ctx.strokeStyle = '#DDDDDD';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x + 0.5, y + 0.5, cellSize, cellSize);
+      if (cell && !cell.isExternal) {
+        const label = getDisplayColorKey(cell.color, selectedColorSystem);
+        drawLabelWithOutline(
+          ctx,
+          label.length > 4 ? `${label.slice(0, 3)}…` : label,
+          x + cellSize / 2,
+          y + cellSize / 2,
+          getContrastColor(cell.color),
+          'rgba(255,255,255,0.7)',
+        );
+      }
+    }
+  }
+
+  ctx.strokeStyle = '#8EA19D';
+  ctx.lineWidth = 1.5;
+  for (let col = 10; col < N; col += 10) {
+    const x = gridX + col * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(x, gridY);
+    ctx.lineTo(x, gridY + M * cellSize);
+    ctx.stroke();
+  }
+  for (let row = 10; row < M; row += 10) {
+    const y = gridY + row * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(gridX, y);
+    ctx.lineTo(gridX + N * cellSize, y);
+    ctx.stroke();
+  }
+
+  const statsY = gridY + M * cellSize + axis + statsPadding;
+  ctx.fillStyle = '#17201F';
+  ctx.font = '700 16px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('色号与用量', statsPadding, statsY);
+  const sortedColors = Object.keys(colorCounts).sort(sortColorKeys);
+  sortedColors.forEach((hex, index) => {
+    const column = index % 3;
+    const row = Math.floor(index / 3);
+    const itemWidth = Math.floor((width - statsPadding * 2) / 3);
+    const x = statsPadding + column * itemWidth;
+    const y = statsY + 30 + row * 26;
+    ctx.fillStyle = colorCounts[hex].color;
+    ctx.fillRect(x, y - 10, 16, 16);
+    ctx.strokeStyle = '#CCCCCC';
+    ctx.strokeRect(x, y - 10, 16, 16);
+    ctx.fillStyle = '#17201F';
+    ctx.font = '600 12px system-ui, -apple-system, sans-serif';
+    ctx.fillText(getColorKeyByHex(hex, selectedColorSystem), x + 24, y);
+    ctx.fillStyle = '#6B7280';
+    ctx.font = '400 12px system-ui, -apple-system, sans-serif';
+    ctx.fillText(`${colorCounts[hex].count} 颗`, x + 86, y);
+  });
+  ctx.fillStyle = '#17201F';
+  ctx.font = '700 13px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`合计 ${totalBeadCount} 颗`, statsPadding, height - 22);
+
+  return new Blob([dataUrlToBytes(canvas.toDataURL('image/png'))], { type: 'image/png' });
 }
 
 export function parseCsvText(
@@ -373,8 +514,6 @@ export async function downloadImage({
   options,
   activeBeadPalette,
   selectedColorSystem,
-  boardPlan,
-  inventoryPresetId,
 }: {
   mappedPixelData: MappedPixel[][] | null;
   gridDimensions: { N: number; M: number } | null;
@@ -974,35 +1113,6 @@ export async function downloadImage({
         });
       }
 
-      if (boardPlan) {
-        const manifest = {
-          version: 1,
-          generatedAt: new Date().toISOString(),
-          grid: gridDimensions,
-          inventoryPresetId,
-          selectedColorSystem,
-          boardPlan,
-          bom: Object.entries(colorCounts).map(([hex, data]) => ({
-            mardCode: activeBeadPalette.find((color) => color.hex.toUpperCase() === hex.toUpperCase())?.key ?? null,
-            displayCode: getColorKeyByHex(hex, selectedColorSystem),
-            hex,
-            count: data.count,
-            percentage: totalBeadCount === 0 ? 0 : data.count / totalBeadCount,
-          })),
-        };
-        downloadBlob(
-          new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json;charset=utf-8' }),
-          'manifest.json',
-        );
-        boardPlan.boards.forEach((board) => {
-          drawBoardSheetPng({
-            mappedPixelData,
-            board,
-            selectedColorSystem,
-            boardSize: boardPlan.boardSize,
-          });
-        });
-      }
     } catch (e) {
       console.error("下载图纸失败:", e);
       alert("无法生成图纸下载链接。");

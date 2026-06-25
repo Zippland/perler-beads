@@ -10,7 +10,6 @@ export interface CompileConfig {
   similarityThreshold: number;
   pixelationMode: string;
   inventoryPresetId: string;
-  excludedColorKeys: readonly string[];
   cropRect: CropRect | null;
 }
 
@@ -27,7 +26,6 @@ export function getCompileConfigChanges(appliedConfig: CompileConfig, draftConfi
     'similarityThreshold',
     'pixelationMode',
     'inventoryPresetId',
-    'excludedColorKeys',
     'cropRect',
   ];
 

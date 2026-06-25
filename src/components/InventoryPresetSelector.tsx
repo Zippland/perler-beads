@@ -20,7 +20,7 @@ export default function InventoryPresetSelector({
     <section className="rounded-lg border border-[#dce5e2] bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-[#17201f]">MARD 色包</h2>
+          <h2 className="text-sm font-semibold text-[#17201f]">可用色域</h2>
           <p className="mt-1 text-xs text-[#6f7d7b]">
             当前允许 {activeColorCount} 色
           </p>

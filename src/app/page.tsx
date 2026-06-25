@@ -21,12 +21,13 @@ import {
   colorDistance,
 } from "../utils/pixelation";
 
-// 导入新的类型和组件
-import { GridDownloadOptions } from "../types/downloadTypes";
-import DownloadSettingsModal, {
-  gridLineColorOptions,
-} from "../components/DownloadSettingsModal";
-import { downloadImage, importCsvData } from "../utils/imageDownloader";
+import {
+  createBoardSheetPngBlob,
+  createPrintChartPngBlob,
+  downloadImage,
+  importCsvData,
+  serializeCsvText,
+} from "../utils/imageDownloader";
 import {
   checkFileSize,
   checkImagePixels,
@@ -35,7 +36,6 @@ import {
 } from "../utils/limits";
 
 import {
-  colorSystemOptions,
   getColorKeyByHex,
   getMardToHexMapping,
   sortColorsByHue,
@@ -81,18 +81,25 @@ const fullBeadPalette: PaletteColor[] = Object.entries(mardToHexMapping)
   })
   .filter((color): color is PaletteColor => color !== null);
 
+function downloadBlob(blob: Blob, filename: string): void {
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = filename;
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 // ++ Add definition for background color keys ++
 
 // 1. 导入新组件
 import PixelatedPreviewCanvas from "../components/PixelatedPreviewCanvas";
-import GridTooltip from "../components/GridTooltip";
 import CustomPaletteEditor from "../components/CustomPaletteEditor";
-import FloatingColorPalette from "../components/FloatingColorPalette";
-import FloatingToolbar from "../components/FloatingToolbar";
-import MagnifierTool from "../components/MagnifierTool";
-import MagnifierSelectionOverlay from "../components/MagnifierSelectionOverlay";
 import InventoryPresetSelector from "../components/InventoryPresetSelector";
-import BoardPlanPanel from "../components/BoardPlanPanel";
+import ExportDialog from "../features/workbench/ExportDialog";
 import {
   loadPaletteSelections,
   savePaletteSelections,
@@ -104,7 +111,6 @@ import {
   transparentColorData,
 } from "../utils/pixelEditingUtils";
 
-import FocusModePreDownloadModal from "../components/FocusModePreDownloadModal";
 import { createBoardPlan, BoardPreference } from "../domain/boards/boardPlan";
 import { deriveChartStats } from "../domain/chart/chartStats";
 import {
@@ -121,6 +127,11 @@ import {
   deleteSelection,
   replaceSelectionColor,
 } from "../domain/edit/chartEdits";
+import {
+  MakerPackFile,
+  buildMakerPackManifest,
+  buildStoredZipBlob,
+} from "../features/workbench/buildMakerPack";
 
 export default function Home() {
   const [originalImageSrc, setOriginalImageSrc] = useState<string | null>(null);
@@ -134,23 +145,15 @@ export default function Home() {
     PixelationMode.Dominant,
   ); // 默认为卡通模式
 
-  // 新增：色号系统选择状态
-  const [selectedColorSystem, setSelectedColorSystem] =
-    useState<ColorSystem>("MARD");
+  const selectedColorSystem: ColorSystem = "MARD";
   const [inventoryPresetId, setInventoryPresetId] =
     useState<MardInventoryPresetId>("mard-full");
   const [boardPreference, setBoardPreference] =
     useState<BoardPreference>("auto");
-  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [appliedCompileConfig, setAppliedCompileConfig] =
     useState<CompileConfig | null>(null);
 
-  // 状态变量：存储被排除的颜色（hex值）
-  const [excludedColorKeys, setExcludedColorKeys] = useState<Set<string>>(
-    new Set(),
-  );
-  const [showExcludedColors, setShowExcludedColors] = useState<boolean>(false);
-  // 用于记录初始网格颜色（hex值），用于显示排除功能
+  // 用于记录初始网格颜色（hex值）
   const [, setInitialGridColorKeys] = useState<Set<string>>(new Set());
   const [mappedPixelData, setMappedPixelData] = useState<
     MappedPixel[][] | null
@@ -183,8 +186,6 @@ export default function Home() {
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [draftSelection, setDraftSelection] = useState<Set<string>>(new Set());
   const [selectedColor, setSelectedColor] = useState<MappedPixel | null>(null);
-  // 新增：一键擦除模式状态
-  const [isEraseMode, setIsEraseMode] = useState<boolean>(false);
   const [customPaletteSelections, setCustomPaletteSelections] =
     useState<PaletteSelections>({});
   const [isCustomPaletteEditorOpen, setIsCustomPaletteEditorOpen] =
@@ -194,15 +195,6 @@ export default function Home() {
   // ++ 新增：下载设置相关状态 ++
   const [isDownloadSettingsOpen, setIsDownloadSettingsOpen] =
     useState<boolean>(false);
-  const [downloadOptions, setDownloadOptions] = useState<GridDownloadOptions>({
-    showGrid: true,
-    gridInterval: 10,
-    showCoordinates: true,
-    showCellNumbers: true,
-    gridLineColor: gridLineColorOptions[0].value,
-    includeStats: true, // 默认包含统计信息
-    exportCsv: false, // 默认不导出CSV
-  });
 
   // 新增：高亮相关状态
   const [highlightColorKey, setHighlightColorKey] = useState<string | null>(
@@ -212,40 +204,8 @@ export default function Home() {
   // 新增：完整色板切换状态
   const [showFullPalette, setShowFullPalette] = useState<boolean>(false);
 
-  // 新增：颜色替换相关状态
-  const [colorReplaceState, setColorReplaceState] = useState<{
-    isActive: boolean;
-    step: "select-source" | "select-target";
-    sourceColor?: { key: string; color: string };
-  }>({
-    isActive: false,
-    step: "select-source",
-  });
-
   // 新增：组件挂载状态
   const [isMounted, setIsMounted] = useState<boolean>(false);
-
-  // 新增：悬浮调色盘状态
-  const [isFloatingPaletteOpen, setIsFloatingPaletteOpen] =
-    useState<boolean>(true);
-
-  // 新增：放大镜状态
-  const [isMagnifierActive, setIsMagnifierActive] = useState<boolean>(false);
-  const [magnifierSelectionArea, setMagnifierSelectionArea] = useState<{
-    startRow: number;
-    startCol: number;
-    endRow: number;
-    endCol: number;
-  } | null>(null);
-
-  // 新增：活跃工具层级管理
-  const [activeFloatingTool, setActiveFloatingTool] = useState<
-    "palette" | "magnifier" | null
-  >(null);
-
-  // 新增：专心拼豆模式进入前下载提醒弹窗
-  const [isFocusModePreDownloadModalOpen, setIsFocusModePreDownloadModalOpen] =
-    useState<boolean>(false);
 
   // 新增：编辑撤回历史栈（多步）
   interface EditSnapshot {
@@ -255,10 +215,6 @@ export default function Home() {
   }
   const [editHistory, setEditHistory] = useState<EditSnapshot[]>([]);
   const [editFuture, setEditFuture] = useState<EditSnapshot[]>([]);
-
-  // 新增：一键去背景撤回快照（单步）
-  const [bgRemovalSnapshot, setBgRemovalSnapshot] =
-    useState<EditSnapshot | null>(null);
 
   // 新增：轻量提示
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -274,26 +230,6 @@ export default function Home() {
     setTotalBeadCount(stats.totalBeadCount);
     setInitialGridColorKeys(new Set(Object.keys(stats.colorCounts)));
   }, []);
-
-  // 放大镜切换处理函数
-  const handleToggleMagnifier = () => {
-    const newActiveState = !isMagnifierActive;
-    setIsMagnifierActive(newActiveState);
-
-    // 如果关闭放大镜，清除选择区域，重新开始
-    if (!newActiveState) {
-      setMagnifierSelectionArea(null);
-    }
-  };
-
-  // 激活工具处理函数
-  const handleActivatePalette = () => {
-    setActiveFloatingTool("palette");
-  };
-
-  const handleActivateMagnifier = () => {
-    setActiveFloatingTool("magnifier");
-  };
 
   // --- 撤回功能 ---
 
@@ -342,16 +278,6 @@ export default function Home() {
     }
     showToast("已重做");
   }, [createEditSnapshot, editFuture, showToast]);
-
-  // 一键去背景单步撤回
-  const handleUndoBgRemoval = useCallback(() => {
-    if (!bgRemovalSnapshot) return;
-    setMappedPixelData(bgRemovalSnapshot.mappedPixelData);
-    setColorCounts(bgRemovalSnapshot.colorCounts);
-    setTotalBeadCount(bgRemovalSnapshot.totalBeadCount);
-    setBgRemovalSnapshot(null);
-    showToast("已撤回背景去除");
-  }, [bgRemovalSnapshot, showToast]);
 
   // 清空编辑历史（参数变化、退出编辑模式等时调用）
   const clearEditHistory = useCallback(() => {
@@ -403,66 +329,6 @@ export default function Home() {
     showToast,
   ]);
 
-  // 放大镜像素编辑处理函数
-  const handleMagnifierPixelEdit = (
-    row: number,
-    col: number,
-    colorData: { key: string; color: string },
-  ) => {
-    if (!mappedPixelData) return;
-
-    const oldPixel = mappedPixelData[row][col];
-    if (!oldPixel || oldPixel.key === colorData.key) return;
-
-    // 创建新的像素数据
-    const newMappedPixelData = mappedPixelData.map((rowData, r) =>
-      rowData.map((pixel, c) => {
-        if (r === row && c === col) {
-          return {
-            key: colorData.key,
-            color: colorData.color,
-          } as MappedPixel;
-        }
-        return pixel;
-      }),
-    );
-
-    saveEditSnapshot();
-    setMappedPixelData(newMappedPixelData);
-
-    // 更新颜色统计
-    if (colorCounts) {
-      const newColorCounts = { ...colorCounts };
-
-      // 减少原颜色的计数
-      if (newColorCounts[oldPixel.key]) {
-        newColorCounts[oldPixel.key].count--;
-        if (newColorCounts[oldPixel.key].count === 0) {
-          delete newColorCounts[oldPixel.key];
-        }
-      }
-
-      // 增加新颜色的计数
-      if (newColorCounts[colorData.key]) {
-        newColorCounts[colorData.key].count++;
-      } else {
-        newColorCounts[colorData.key] = {
-          count: 1,
-          color: colorData.color,
-        };
-      }
-
-      setColorCounts(newColorCounts);
-
-      // 更新总计数
-      const newTotal = Object.values(newColorCounts).reduce(
-        (sum, item) => sum + item.count,
-        0,
-      );
-      setTotalBeadCount(newTotal);
-    }
-  };
-
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelatedCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -487,7 +353,6 @@ export default function Home() {
       return buildAllowedMardPalette({
         fullPalette: customPalette,
         inventoryCodes: customPalette.map((color) => color.key),
-        excludedHexKeys: excludedColorKeys,
       });
     }
 
@@ -495,9 +360,8 @@ export default function Home() {
     return buildAllowedMardPalette({
       fullPalette: fullBeadPalette,
       inventoryCodes: preset.mardCodes,
-      excludedHexKeys: excludedColorKeys,
     });
-  }, [customPaletteSelections, excludedColorKeys, inventoryPresetId]);
+  }, [customPaletteSelections, inventoryPresetId]);
 
   // ++ 添加：当状态变化时同步更新输入框的值 ++
   useEffect(() => {
@@ -553,14 +417,10 @@ export default function Home() {
       similarityThreshold,
       pixelationMode,
       inventoryPresetId,
-      excludedColorKeys: Array.from(excludedColorKeys, (hex) =>
-        hex.toUpperCase(),
-      ).sort(),
       cropRect: null,
       ...overrides,
     }),
     [
-      excludedColorKeys,
       granularity,
       inventoryPresetId,
       pixelationMode,
@@ -571,9 +431,8 @@ export default function Home() {
   const hasLocalEdits = useMemo(
     () =>
       editHistory.length > 0 ||
-      editFuture.length > 0 ||
-      bgRemovalSnapshot !== null,
-    [bgRemovalSnapshot, editFuture.length, editHistory.length],
+      editFuture.length > 0,
+    [editFuture.length, editHistory.length],
   );
 
   const confirmRecompileIfNeeded = useCallback(
@@ -593,8 +452,7 @@ export default function Home() {
         gridWidth: "图纸宽度",
         similarityThreshold: "相似度",
         pixelationMode: "像素化模式",
-        inventoryPresetId: "MARD 色包",
-        excludedColorKeys: "排除颜色",
+        inventoryPresetId: "可用色域",
         cropRect: "原图裁剪",
       };
       const changedText = intent.changes
@@ -679,28 +537,6 @@ export default function Home() {
 
   // --- Event Handlers ---
 
-  // 专心拼豆模式相关处理函数
-  const handleEnterFocusMode = () => {
-    setIsFocusModePreDownloadModalOpen(true);
-  };
-
-  const handleProceedToFocusMode = () => {
-    // 保存数据到localStorage供专心拼豆模式使用
-    localStorage.setItem(
-      "focusMode_pixelData",
-      JSON.stringify(mappedPixelData),
-    );
-    localStorage.setItem(
-      "focusMode_gridDimensions",
-      JSON.stringify(gridDimensions),
-    );
-    localStorage.setItem("focusMode_colorCounts", JSON.stringify(colorCounts));
-    localStorage.setItem("focusMode_selectedColorSystem", selectedColorSystem);
-
-    // 跳转到专心拼豆页面
-    window.location.href = "/focus";
-  };
-
   // 添加一个安全的文件输入触发函数
   const triggerFileInput = useCallback(() => {
     // 检查组件是否已挂载
@@ -752,7 +588,6 @@ export default function Home() {
         "image/jpeg",
         "image/jpg",
         "image/png",
-        "image/gif",
       ];
       // 支持的CSV MIME类型（不同浏览器可能返回不同的MIME类型）
       const supportedCsvTypes = ["text/csv", "application/csv", "text/plain"];
@@ -762,11 +597,10 @@ export default function Home() {
         supportedCsvTypes.includes(fileType) || fileName.endsWith(".csv");
 
       if (isImageFile || isCsvFile) {
-        setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
         processFile(file);
       } else {
         alert(
-          `不支持的文件类型: ${file.type || "未知"}。请选择 JPG、PNG、GIF 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`,
+          `不支持的文件类型: ${file.type || "未知"}。请选择 JPG、PNG 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`,
         );
         console.warn(
           `Unsupported file type: ${file.type}, file name: ${file.name}`,
@@ -796,7 +630,6 @@ export default function Home() {
           "image/jpeg",
           "image/jpg",
           "image/png",
-          "image/gif",
         ];
         // 支持的CSV MIME类型（不同浏览器可能返回不同的MIME类型）
         const supportedCsvTypes = ["text/csv", "application/csv", "text/plain"];
@@ -806,11 +639,10 @@ export default function Home() {
           supportedCsvTypes.includes(fileType) || fileName.endsWith(".csv");
 
         if (isImageFile || isCsvFile) {
-          setExcludedColorKeys(new Set()); // ++ 重置排除列表 ++
           processFile(file);
         } else {
           alert(
-            `不支持的文件类型: ${file.type || "未知"}。请拖放 JPG、PNG、GIF 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`,
+            `不支持的文件类型: ${file.type || "未知"}。请拖放 JPG、PNG 格式的图片文件，或 CSV 数据文件。\n文件名: ${file.name}`,
           );
           console.warn(
             `Unsupported file type: ${file.type}, file name: ${file.name}`,
@@ -946,7 +778,6 @@ export default function Home() {
           // 重置状态
           setIsManualColoringMode(false);
           setSelectedColor(null);
-          setIsEraseMode(false);
 
           // 设置格子数量为导入的尺寸，避免重新映射时尺寸被修改
           setGranularity(gridDimensions.N);
@@ -977,78 +808,19 @@ export default function Home() {
         setRemapTrigger((prev) => prev + 1); // Trigger full remap for new image
       };
 
-      const isGif =
-        file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
-
-      if (isGif) {
-        // GIF 走 createImageBitmap，先检查解码尺寸再创建 Canvas
-        createImageBitmap(file)
-          .then((bitmap) => {
-            const pixelCheck = checkImagePixels(bitmap.width, bitmap.height);
-            if (!pixelCheck.ok) {
-              bitmap.close();
-              alert(pixelCheck.message!);
-              return;
-            }
-            const canvas = document.createElement("canvas");
-            canvas.width = bitmap.width;
-            canvas.height = bitmap.height;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) {
-              bitmap.close();
-              throw new Error("无法创建 Canvas 上下文");
-            }
-            ctx.drawImage(bitmap, 0, 0);
-            bitmap.close();
-            applyImageSrc(canvas.toDataURL("image/png"));
-          })
-          .catch((error) => {
-            console.error("GIF 处理失败:", error);
-            alert("无法读取 GIF 文件。");
-            setInitialGridColorKeys(new Set());
-          });
-      } else {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          applyImageSrc(e.target?.result as string);
-        };
-        reader.onerror = () => {
-          console.error("文件读取失败");
-          alert("无法读取文件。");
-          setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
-        };
-        reader.readAsDataURL(file);
-      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        applyImageSrc(e.target?.result as string);
+      };
+      reader.onerror = () => {
+        console.error("文件读取失败");
+        alert("无法读取文件。");
+        setInitialGridColorKeys(new Set()); // ++ 重置初始键 ++
+      };
+      reader.readAsDataURL(file);
       // ++ Reset manual coloring mode when a new file is processed ++
       setIsManualColoringMode(false);
       setSelectedColor(null);
-      setIsEraseMode(false);
-    }
-  };
-
-  // 处理一键擦除模式切换
-  const handleEraseToggle = () => {
-    // 确保在手动上色模式下才能使用擦除功能
-    if (!isManualColoringMode) {
-      return;
-    }
-
-    // 如果当前在颜色替换模式，先退出替换模式
-    if (colorReplaceState.isActive) {
-      setColorReplaceState({
-        isActive: false,
-        step: "select-source",
-      });
-      setHighlightColorKey(null);
-    }
-
-    const nextEraseMode = !isEraseMode;
-    setIsEraseMode(nextEraseMode);
-    setEditorTool(nextEraseMode ? "erase" : "paint");
-    // 如果开启擦除模式，取消选中的颜色
-    if (nextEraseMode) {
-      setSelectedColor(null);
-      clearSelection();
     }
   };
 
@@ -1124,7 +896,7 @@ export default function Home() {
         "Cannot pixelate: The selected color palette is empty (likely due to exclusions).",
       );
       alert(
-        "错误：当前可用颜色板为空（可能所有颜色都被排除了），无法处理图像。请尝试恢复部分颜色。",
+        "错误：当前可用色域为空，无法处理图像。请在“我的库存”中选择至少一种颜色。",
       );
       setMappedPixelData(null);
       setGridDimensions(null);
@@ -1385,10 +1157,9 @@ export default function Home() {
     setSelectedColor(null);
   }; // 正确闭合 pixelateImage 函数
 
-  // 当 remapTrigger 变化时清空撤回历史（参数调整/颜色排除/新图上传等均会触发 remap）
+  // 当 remapTrigger 变化时清空撤回历史（参数调整/新图上传等均会触发 remap）
   useEffect(() => {
     clearEditHistory();
-    setBgRemovalSnapshot(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remapTrigger]);
 
@@ -1436,7 +1207,7 @@ export default function Home() {
         pixelatedCtx.font = "16px sans-serif";
         pixelatedCtx.textAlign = "center";
         pixelatedCtx.fillText(
-          "无可用颜色，请恢复部分排除的颜色",
+          "无可用颜色，请先维护我的库存",
           pixelatedCanvas.width / 2,
           pixelatedCanvas.height / 2,
         );
@@ -1518,7 +1289,7 @@ export default function Home() {
   ]);
 
   // --- Download function (ensure filename includes palette) ---
-  const handleDownloadRequest = (options?: GridDownloadOptions) => {
+  const handlePrintChartDownload = () => {
     if (mappedPixelData && boardPlan) {
       const issues = validateExportConsistency({
         mappedPixelData,
@@ -1538,318 +1309,93 @@ export default function Home() {
       gridDimensions,
       colorCounts,
       totalBeadCount,
-      options: options || downloadOptions,
+      options: {
+        showGrid: true,
+        gridInterval: 10,
+        showCoordinates: true,
+        showCellNumbers: true,
+        gridLineColor: "#555555",
+        includeStats: true,
+        exportCsv: false,
+      },
       activeBeadPalette: activePalette,
       selectedColorSystem,
-      boardPlan,
+      boardPlan: null,
       inventoryPresetId,
     });
   };
 
-  // --- Handler to toggle color exclusion ---
-  const handleToggleExcludeColor = (hexKey: string) => {
-    const normalizedHex = hexKey.toUpperCase();
-    setExcludedColorKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(normalizedHex)) {
-        next.delete(normalizedHex);
-        showToast("已恢复颜色，重新生成后生效");
-      } else {
-        next.add(normalizedHex);
-        showToast("已排除颜色，重新生成后生效");
-      }
-      return next;
-    });
-  };
-
-  // 一键去背景：识别边缘主色并洪水填充去除
-  const handleAutoRemoveBackground = () => {
-    if (!mappedPixelData || !gridDimensions) {
-      alert("请先生成图纸后再使用一键去背景。");
+  const handleMakerPackDownload = async () => {
+    if (!mappedPixelData || !gridDimensions || !colorCounts || !boardPlan) {
+      alert("无法导出制作包，图纸尚未生成。");
       return;
     }
 
-    // 保存快照用于单步撤回
-    setBgRemovalSnapshot({
-      mappedPixelData: mappedPixelData.map((row) =>
-        row.map((cell) => ({ ...cell })),
-      ),
-      colorCounts: colorCounts ? { ...colorCounts } : {},
+    const issues = validateExportConsistency({
+      mappedPixelData,
+      allowedMardCodes: new Set(activePalette.map((color) => color.key)),
+      boardPlan,
+    });
+
+    if (issues.length > 0) {
+      alert(`${issues[0]}\n\n请先重新生成图纸后再导出。`);
+      return;
+    }
+
+    const printChart = createPrintChartPngBlob({
+      mappedPixelData,
+      gridDimensions,
+      colorCounts,
       totalBeadCount,
+      selectedColorSystem,
     });
-    // 去背景会大幅改变数据，清空编辑撤回历史
-    setEditHistory([]);
+    if (!printChart) return;
 
-    const { N, M } = gridDimensions;
-    const borderCounts = new Map<string, number>();
+    const files: MakerPackFile[] = [
+      {
+        path: "print-chart.png",
+        bytes: new Uint8Array(await printChart.arrayBuffer()),
+      },
+      {
+        path: "pattern.csv",
+        bytes: new TextEncoder().encode(
+          serializeCsvText({ mappedPixelData, gridDimensions }),
+        ),
+      },
+      {
+        path: "manifest.json",
+        bytes: new TextEncoder().encode(
+          JSON.stringify(
+            buildMakerPackManifest({
+              mappedPixelData,
+              gridDimensions,
+              inventoryPresetId,
+              boardPlan,
+              activeBeadPalette: activePalette,
+            }),
+            null,
+            2,
+          ),
+        ),
+      },
+    ];
 
-    const countBorderCell = (row: number, col: number) => {
-      const cell = mappedPixelData[row]?.[col];
-      if (!cell || cell.isExternal || cell.key === TRANSPARENT_KEY) return;
-      borderCounts.set(cell.key, (borderCounts.get(cell.key) || 0) + 1);
-    };
-
-    for (let col = 0; col < N; col++) {
-      countBorderCell(0, col);
-      if (M > 1) countBorderCell(M - 1, col);
-    }
-    for (let row = 1; row < M - 1; row++) {
-      countBorderCell(row, 0);
-      if (N > 1) countBorderCell(row, N - 1);
-    }
-
-    if (borderCounts.size === 0) {
-      alert("边缘没有可识别的背景颜色。");
-      return;
-    }
-
-    let targetKey = "";
-    let maxCount = -1;
-    borderCounts.forEach((count, key) => {
-      if (count > maxCount) {
-        maxCount = count;
-        targetKey = key;
-      }
-    });
-
-    const newPixelData = mappedPixelData.map((row) =>
-      row.map((cell) => ({ ...cell })),
-    );
-    const visited = Array(M)
-      .fill(null)
-      .map(() => Array(N).fill(false));
-    const stack: { row: number; col: number }[] = [];
-
-    const pushIfTarget = (row: number, col: number) => {
-      if (row < 0 || row >= M || col < 0 || col >= N || visited[row][col]) {
-        return;
-      }
-      const cell = newPixelData[row][col];
-      if (!cell || cell.isExternal || cell.key !== targetKey) return;
-      visited[row][col] = true;
-      stack.push({ row, col });
-    };
-
-    for (let col = 0; col < N; col++) {
-      pushIfTarget(0, col);
-      if (M > 1) pushIfTarget(M - 1, col);
-    }
-    for (let row = 1; row < M - 1; row++) {
-      pushIfTarget(row, 0);
-      if (N > 1) pushIfTarget(row, N - 1);
-    }
-
-    if (stack.length === 0) {
-      alert("未找到可去除的背景区域。");
-      return;
-    }
-
-    while (stack.length > 0) {
-      const { row, col } = stack.pop()!;
-      newPixelData[row][col] = { ...transparentColorData };
-      pushIfTarget(row - 1, col);
-      pushIfTarget(row + 1, col);
-      pushIfTarget(row, col - 1);
-      pushIfTarget(row, col + 1);
-    }
-
-    setMappedPixelData(newPixelData);
-
-    const newColorCounts: {
-      [hexKey: string]: { count: number; color: string };
-    } = {};
-    let newTotalCount = 0;
-    newPixelData.flat().forEach((cell) => {
-      if (cell && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
-        const cellHex = cell.color.toUpperCase();
-        if (!newColorCounts[cellHex]) {
-          newColorCounts[cellHex] = {
-            count: 0,
-            color: cellHex,
-          };
-        }
-        newColorCounts[cellHex].count++;
-        newTotalCount++;
-      }
-    });
-
-    setColorCounts(newColorCounts);
-    setTotalBeadCount(newTotalCount);
-    setInitialGridColorKeys(new Set(Object.keys(newColorCounts)));
-  };
-
-  // --- 整体移动画布（为四周留出空白保护格子）---
-  const handleShiftCanvas = (direction: "up" | "down" | "left" | "right") => {
-    if (!mappedPixelData || !gridDimensions) return;
-    const { N, M } = gridDimensions;
-
-    // 保存编辑快照
-    saveEditSnapshot();
-
-    // 新网格尺寸：在移动方向增加 1
-    let newN = N;
-    let newM = M;
-    let offsetCol = 0;
-    let offsetRow = 0;
-
-    switch (direction) {
-      case "up":
-        newM = M + 1;
-        offsetRow = 1;
-        break;
-      case "down":
-        newM = M + 1;
-        offsetRow = 0;
-        break;
-      case "left":
-        newN = N + 1;
-        offsetCol = 1;
-        break;
-      case "right":
-        newN = N + 1;
-        offsetCol = 0;
-        break;
-    }
-
-    // 创建新数据数组，全部初始化为透明
-    const newData: MappedPixel[][] = Array(newM)
-      .fill(null)
-      .map(() =>
-        Array(newN)
-          .fill(null)
-          .map(() => ({ ...transparentColorData })),
-      );
-
-    // 将旧数据复制到新位置
-    for (let j = 0; j < M; j++) {
-      for (let i = 0; i < N; i++) {
-        const cell = mappedPixelData[j][i];
-        newData[j + offsetRow][i + offsetCol] = { ...cell };
-      }
-    }
-
-    setMappedPixelData(newData);
-    setGridDimensions({ N: newN, M: newM });
-
-    // 重新计算颜色统计
-    const newCounts: { [hexKey: string]: { count: number; color: string } } =
-      {};
-    let newTotal = 0;
-    newData.flat().forEach((cell) => {
-      if (cell && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
-        const hk = cell.color.toUpperCase();
-        if (!newCounts[hk]) newCounts[hk] = { count: 0, color: hk };
-        newCounts[hk].count++;
-        newTotal++;
-      }
-    });
-    setColorCounts(newCounts);
-    setTotalBeadCount(newTotal);
-    setInitialGridColorKeys(new Set(Object.keys(newCounts)));
-
-    // 更新画布尺寸（按新 N 重新计算）
-    if (pixelatedCanvasSize) {
-      const newWidth = pixelatedCanvasSize.width;
-      const newHeight = Math.round((newWidth * newM) / newN);
-      setPixelatedCanvasSize({ width: newWidth, height: newHeight });
-    }
-
-    showToast(
-      direction === "up"
-        ? "向上移动"
-        : direction === "down"
-          ? "向下移动"
-          : direction === "left"
-            ? "向左移动"
-            : "向右移动",
-    );
-  };
-
-  // --- Tooltip Logic ---
-
-  // --- Canvas Interaction ---
-
-  // 洪水填充擦除函数
-  const floodFillErase = (
-    startRow: number,
-    startCol: number,
-    targetKey: string,
-  ) => {
-    if (!mappedPixelData || !gridDimensions) return;
-
-    const { N, M } = gridDimensions;
-    const newPixelData = mappedPixelData.map((row) =>
-      row.map((cell) => ({ ...cell })),
-    );
-    const visited = Array(M)
-      .fill(null)
-      .map(() => Array(N).fill(false));
-
-    // 使用栈实现非递归洪水填充
-    const stack = [{ row: startRow, col: startCol }];
-
-    while (stack.length > 0) {
-      const { row, col } = stack.pop()!;
-
-      // 检查边界
-      if (row < 0 || row >= M || col < 0 || col >= N || visited[row][col]) {
-        continue;
-      }
-
-      const currentCell = newPixelData[row][col];
-
-      // 检查是否是目标颜色且不是外部区域
-      if (
-        !currentCell ||
-        currentCell.isExternal ||
-        currentCell.key !== targetKey
-      ) {
-        continue;
-      }
-
-      // 标记为已访问
-      visited[row][col] = true;
-
-      // 擦除当前像素（设为透明）
-      newPixelData[row][col] = { ...transparentColorData };
-
-      // 添加相邻像素到栈中
-      stack.push(
-        { row: row - 1, col }, // 上
-        { row: row + 1, col }, // 下
-        { row, col: col - 1 }, // 左
-        { row, col: col + 1 }, // 右
-      );
-    }
-
-    // 更新状态
-    saveEditSnapshot();
-    setMappedPixelData(newPixelData);
-
-    // 重新计算颜色统计
-    if (colorCounts) {
-      const newColorCounts: {
-        [hexKey: string]: { count: number; color: string };
-      } = {};
-      let newTotalCount = 0;
-
-      newPixelData.flat().forEach((cell) => {
-        if (cell && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
-          const cellHex = cell.color.toUpperCase();
-          if (!newColorCounts[cellHex]) {
-            newColorCounts[cellHex] = {
-              count: 0,
-              color: cellHex,
-            };
-          }
-          newColorCounts[cellHex].count++;
-          newTotalCount++;
-        }
+    for (const board of boardPlan.boards) {
+      const boardBlob = createBoardSheetPngBlob({
+        mappedPixelData,
+        board,
+        selectedColorSystem,
+        boardSize: boardPlan.boardSize,
       });
-
-      setColorCounts(newColorCounts);
-      setTotalBeadCount(newTotalCount);
+      if (!boardBlob) return;
+      files.push({
+        path: `boards/${board.id}.png`,
+        bytes: new Uint8Array(await boardBlob.arrayBuffer()),
+      });
     }
+
+    downloadBlob(buildStoredZipBlob(files), `maker-pack-${gridDimensions.N}x${gridDimensions.M}.zip`);
+    showToast("制作包已生成");
   };
 
   // ++ Re-introduce the combined interaction handler ++
@@ -1888,44 +1434,6 @@ export default function Home() {
 
     if (i >= 0 && i < N && j >= 0 && j < M) {
       const cellData = mappedPixelData[j][i];
-
-      // 颜色替换模式逻辑 - 选择源颜色
-      if (
-        isClick &&
-        colorReplaceState.isActive &&
-        colorReplaceState.step === "select-source"
-      ) {
-        if (
-          cellData &&
-          !cellData.isExternal &&
-          cellData.key &&
-          cellData.key !== TRANSPARENT_KEY
-        ) {
-          // 执行选择源颜色
-          handleCanvasColorSelect({
-            key: cellData.key,
-            color: cellData.color,
-          });
-          setTooltipData(null);
-        }
-        return;
-      }
-
-      // 一键擦除模式逻辑
-      if (isClick && isEraseMode) {
-        if (
-          cellData &&
-          !cellData.isExternal &&
-          cellData.key &&
-          cellData.key !== TRANSPARENT_KEY
-        ) {
-          // 执行洪水填充擦除
-          floodFillErase(j, i, cellData.key);
-          setIsEraseMode(false); // 擦除完成后退出擦除模式
-          setTooltipData(null);
-        }
-        return;
-      }
 
       // Manual Coloring Logic - 保持原有的上色逻辑
       if (
@@ -2099,7 +1607,6 @@ export default function Home() {
     // 退出手动上色模式
     setIsManualColoringMode(false);
     setSelectedColor(null);
-    setIsEraseMode(false);
   };
 
   // ++ 新增：导出自定义色板配置 ++
@@ -2241,142 +1748,7 @@ export default function Home() {
     color: string;
     isExternal?: boolean;
   }) => {
-    // 如果选择的是橡皮擦（透明色）且当前在颜色替换模式，退出替换模式
-    if (colorData.key === TRANSPARENT_KEY && colorReplaceState.isActive) {
-      setColorReplaceState({
-        isActive: false,
-        step: "select-source",
-      });
-      setHighlightColorKey(null);
-    }
-
-    // 选择任何颜色（包括橡皮擦）时，都应该退出一键擦除模式
-    if (isEraseMode) {
-      setIsEraseMode(false);
-    }
-
-    // 设置选中的颜色
     setSelectedColor(colorData);
-  };
-
-  // 新增：颜色替换相关处理函数
-  const handleColorReplaceToggle = () => {
-    setColorReplaceState((prev) => {
-      if (prev.isActive) {
-        // 退出替换模式
-        return {
-          isActive: false,
-          step: "select-source",
-        };
-      } else {
-        // 进入替换模式
-        // 只退出冲突的模式，但保持在手动上色模式下
-        setIsEraseMode(false);
-        setSelectedColor(null);
-        return {
-          isActive: true,
-          step: "select-source",
-        };
-      }
-    });
-  };
-
-  // 新增：处理从画布选择源颜色
-  const handleCanvasColorSelect = (colorData: {
-    key: string;
-    color: string;
-  }) => {
-    if (
-      colorReplaceState.isActive &&
-      colorReplaceState.step === "select-source"
-    ) {
-      // 高亮显示选中的颜色
-      setHighlightColorKey(colorData.color);
-      // 进入第二步：选择目标颜色
-      setColorReplaceState({
-        isActive: true,
-        step: "select-target",
-        sourceColor: colorData,
-      });
-    }
-  };
-
-  // 新增：执行颜色替换
-  const handleColorReplace = (
-    sourceColor: { key: string; color: string },
-    targetColor: { key: string; color: string },
-  ) => {
-    if (!mappedPixelData || !gridDimensions) return;
-
-    const { N, M } = gridDimensions;
-    const newPixelData = mappedPixelData.map((row) =>
-      row.map((cell) => ({ ...cell })),
-    );
-    let replaceCount = 0;
-
-    // 遍历所有像素，替换匹配的颜色
-    for (let j = 0; j < M; j++) {
-      for (let i = 0; i < N; i++) {
-        const currentCell = newPixelData[j][i];
-        if (
-          currentCell &&
-          !currentCell.isExternal &&
-          currentCell.color.toUpperCase() === sourceColor.color.toUpperCase()
-        ) {
-          // 替换颜色
-          newPixelData[j][i] = {
-            key: targetColor.key,
-            color: targetColor.color,
-            isExternal: false,
-          };
-          replaceCount++;
-        }
-      }
-    }
-
-    if (replaceCount > 0) {
-      // 更新像素数据
-      saveEditSnapshot();
-      setMappedPixelData(newPixelData);
-
-      // 重新计算颜色统计
-      if (colorCounts) {
-        const newColorCounts: {
-          [hexKey: string]: { count: number; color: string };
-        } = {};
-        let newTotalCount = 0;
-
-        newPixelData.flat().forEach((cell) => {
-          if (cell && !cell.isExternal && cell.key !== TRANSPARENT_KEY) {
-            const cellHex = cell.color.toUpperCase();
-            if (!newColorCounts[cellHex]) {
-              newColorCounts[cellHex] = {
-                count: 0,
-                color: cellHex,
-              };
-            }
-            newColorCounts[cellHex].count++;
-            newTotalCount++;
-          }
-        });
-
-        setColorCounts(newColorCounts);
-        setTotalBeadCount(newTotalCount);
-      }
-
-      console.log(
-        `颜色替换完成：将 ${replaceCount} 个 ${sourceColor.key} 替换为 ${targetColor.key}`,
-      );
-    }
-
-    // 退出替换模式
-    setColorReplaceState({
-      isActive: false,
-      step: "select-source",
-    });
-
-    // 清除高亮
-    setHighlightColorKey(null);
   };
 
   // 生成完整色板数据（用户自定义色板中选中的所有颜色）
@@ -2532,14 +1904,14 @@ export default function Home() {
                     点击或拖拽导入
                   </p>
                   <p className="mt-1 text-xs text-[#7a8785]">
-                    JPG / PNG / GIF / CSV
+                    JPG / PNG / CSV
                   </p>
                 </>
               )}
             </div>
             <input
               type="file"
-              accept="image/jpeg, image/png, image/gif, .csv, text/csv, application/csv, text/plain"
+              accept="image/jpeg, image/png, .csv, text/csv, application/csv, text/plain"
               onChange={handleFileChange}
               ref={fileInputRef}
               className="hidden"
@@ -2690,87 +2062,30 @@ export default function Home() {
           <section className="rounded-lg border border-[#dce5e2] bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-[#17201f]">色板</h2>
+                <h2 className="text-sm font-semibold text-[#17201f]">可用色域</h2>
                 <p className="mt-1 text-xs text-[#6f7d7b]">
                   当前启用 {selectedPaletteCount || activePalette.length} 色
                 </p>
               </div>
               {isCustomPalette ? (
                 <span className="rounded-full bg-[#fff7dd] px-2 py-1 text-[11px] text-[#8a6414]">
-                  自定义
+                  我的库存
                 </span>
               ) : null}
             </div>
-            <div className="mb-3 grid grid-cols-3 gap-2">
-              {[
-                ["paint", "上色"],
-                ["erase", "擦除"],
-                ["select", "选择"],
-              ].map(([tool, label]) => (
-                <button
-                  key={tool}
-                  type="button"
-                  onClick={() => {
-                    setIsManualColoringMode(true);
-                    setEditorTool(tool as "paint" | "erase" | "select");
-                    setIsEraseMode(tool === "erase");
-                    if (tool !== "select") clearSelection();
-                  }}
-                  disabled={!chartReady}
-                  className={
-                    "h-8 rounded-md border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-45 " +
-                    (editorTool === tool
-                      ? "border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]"
-                      : "border-[#d2dedb] bg-white text-[#3b4947] hover:bg-[#f7fbfa]")
-                  }
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="rounded-md border border-[#dce5e2] bg-[#fbfdfc] p-3 text-xs leading-5 text-[#6f7d7b]">
+              MARD 是当前工作台唯一色号体系。切换可用色域后，点击“生成图纸”才会应用到当前图纸。
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {colorSystemOptions.map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  onClick={() =>
-                    setSelectedColorSystem(option.key as ColorSystem)
-                  }
-                  className={
-                    "h-9 rounded-md border text-xs font-medium transition " +
-                    (selectedColorSystem === option.key
-                      ? "border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]"
-                      : "border-[#d2dedb] bg-white text-[#5d6b69] hover:bg-[#f7fbfa]")
-                  }
-                >
-                  {option.name}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3">
               <button
                 type="button"
                 onClick={() => {
                   setInventoryPresetId("mard-custom");
                   setIsCustomPaletteEditorOpen(true);
                 }}
-                className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]"
+                className="h-9 w-full rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]"
               >
-                编辑
-              </button>
-              <button
-                type="button"
-                onClick={handleExportCustomPalette}
-                className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]"
-              >
-                导出
-              </button>
-              <button
-                type="button"
-                onClick={triggerImportPalette}
-                className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa]"
-              >
-                导入
+                管理我的库存
               </button>
             </div>
           </section>
@@ -2808,19 +2123,6 @@ export default function Home() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsManualColoringMode(!isManualColoringMode)}
-                  disabled={!chartReady}
-                  className={
-                    "h-9 rounded-md border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 " +
-                    (isManualColoringMode
-                      ? "border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]"
-                      : "border-[#d2dedb] bg-white text-[#3b4947] hover:bg-[#f7fbfa]")
-                  }
-                >
-                  {isManualColoringMode ? "退出编辑" : "编辑颜色"}
-                </button>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -2856,14 +2158,6 @@ export default function Home() {
                     1:1
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleEnterFocusMode}
-                  disabled={!chartReady}
-                  className="h-9 rounded-md border border-[#d2dedb] bg-white px-3 text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  专心拼豆
-                </button>
               </div>
             </div>
             <div className="relative flex flex-1 items-center justify-center overflow-auto bg-[linear-gradient(90deg,#edf2f1_1px,transparent_1px),linear-gradient(#edf2f1_1px,transparent_1px)] bg-[length:24px_24px] p-4 sm:p-6">
@@ -2881,8 +2175,6 @@ export default function Home() {
                     onInteraction={handleCanvasInteraction}
                     highlightColorKey={highlightColorKey}
                     onHighlightComplete={handleHighlightComplete}
-                    boardPlan={boardPlan}
-                    selectedBoardId={selectedBoardId}
                     editorTool={editorTool}
                     selection={selection}
                     draftSelection={draftSelection}
@@ -2897,10 +2189,14 @@ export default function Home() {
                       });
                     }}
                   />
-                  <GridTooltip
-                    tooltipData={tooltipData}
-                    selectedColorSystem={selectedColorSystem}
-                  />
+                  {tooltipData ? (
+                    <div
+                      className="pointer-events-none absolute z-10 rounded-md border border-[#cfdedb] bg-white px-2 py-1 text-xs font-medium text-[#17201f] shadow-sm"
+                      style={{ left: tooltipData.x, top: tooltipData.y }}
+                    >
+                      {getColorKeyByHex(tooltipData.color, selectedColorSystem)}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="flex max-w-md flex-col items-center text-center">
@@ -2939,89 +2235,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-            <div
-              data-action-bar
-              className="grid gap-2 border-t border-[#e4ece9] bg-[#fbfdfc] px-4 py-3 sm:grid-cols-6"
-            >
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => handleShiftCanvas("left")}
-                  disabled={!chartReady}
-                  className="h-9 w-9 rounded-md border border-[#d2dedb] bg-white text-sm font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-                  title="向左移动"
-                >
-                  ←
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleShiftCanvas("up")}
-                  disabled={!chartReady}
-                  className="h-9 w-9 rounded-md border border-[#d2dedb] bg-white text-sm font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-                  title="向上移动"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleShiftCanvas("down")}
-                  disabled={!chartReady}
-                  className="h-9 w-9 rounded-md border border-[#d2dedb] bg-white text-sm font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-                  title="向下移动"
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleShiftCanvas("right")}
-                  disabled={!chartReady}
-                  className="h-9 w-9 rounded-md border border-[#d2dedb] bg-white text-sm font-semibold text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-                  title="向右移动"
-                >
-                  →
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={handleAutoRemoveBackground}
-                disabled={!chartReady}
-                className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                去除背景
-              </button>
-              <button
-                type="button"
-                onClick={handleUndoBgRemoval}
-                disabled={!bgRemovalSnapshot}
-                className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                撤回背景
-              </button>
-              <button
-                type="button"
-                onClick={handleUndoEdit}
-                disabled={editHistory.length === 0}
-                className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                撤回编辑
-              </button>
-              <button
-                type="button"
-                onClick={handleRedoEdit}
-                disabled={editFuture.length === 0}
-                className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-semibold text-[#3b4947] transition hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                重做编辑
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsDownloadSettingsOpen(true)}
-                disabled={!chartReady}
-                className="h-9 rounded-md bg-[#17201f] text-xs font-semibold text-white transition hover:bg-[#2c3836] disabled:cursor-not-allowed disabled:bg-[#a9b5b2]"
-              >
-                导出文件
-              </button>
-            </div>
           </div>
         </section>
 
@@ -3029,21 +2242,14 @@ export default function Home() {
           data-palette-panel
           className="space-y-4 md:sticky md:top-[72px] md:h-[calc(100vh-88px)] md:overflow-auto"
         >
-          <BoardPlanPanel
-            boardPlan={boardPlan}
-            preference={boardPreference}
-            onPreferenceChange={setBoardPreference}
-            selectedBoardId={selectedBoardId}
-            onSelectedBoardChange={setSelectedBoardId}
-          />
           <section className="rounded-lg border border-[#dce5e2] bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-[#17201f]">
-                  颜色清理
+                  图纸检查
                 </h2>
                 <p className="mt-1 text-xs text-[#6f7d7b]">
-                  核对用量，隐藏噪点颜色或进入手动编辑
+                  尺寸、豆数和当前图中颜色
                 </p>
               </div>
               <span className="rounded-full bg-[#f1f4f3] px-2 py-1 text-[11px] text-[#697775]">
@@ -3070,32 +2276,13 @@ export default function Home() {
                 <div className="mt-1 text-[11px] text-[#6f7d7b]">颗</div>
               </div>
             </div>
-          </section>
-          <section className="rounded-lg border border-[#dce5e2] bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-[#17201f]">图中颜色</h2>
-              <button
-                type="button"
-                onClick={() => setShowExcludedColors(!showExcludedColors)}
-                disabled={!colorCounts}
-                className="h-8 rounded-md border border-[#d2dedb] bg-white px-2 text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                {showExcludedColors ? "显示图中" : "显示排除"}
-              </button>
-            </div>
-            <div className="max-h-[390px] space-y-2 overflow-auto pr-1">
+            <div className="mt-4 max-h-[390px] space-y-2 overflow-auto pr-1">
               {colorCountEntries.length > 0 ? (
                 colorCountEntries.map(([hexKey, data]) => {
                   const displayKey = getColorKeyByHex(
                     hexKey,
                     selectedColorSystem,
                   );
-                  const isExcluded = excludedColorKeys.has(hexKey);
-                  if (
-                    excludedColorKeys.size > 0 &&
-                    showExcludedColors !== isExcluded
-                  )
-                    return null;
                   return (
                     <div
                       key={hexKey}
@@ -3117,35 +2304,7 @@ export default function Home() {
                             {data.count} 颗
                           </span>
                         </div>
-                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#e6eeeb]">
-                          <div
-                            className="h-full rounded-full bg-[#1f9d8a]"
-                            style={{
-                              width:
-                                Math.max(
-                                  4,
-                                  Math.min(
-                                    100,
-                                    (data.count / Math.max(totalBeadCount, 1)) *
-                                      100,
-                                  ),
-                                ) + "%",
-                            }}
-                          />
-                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleExcludeColor(hexKey)}
-                        className={
-                          "h-8 rounded-md border px-2 text-[11px] font-medium transition " +
-                          (isExcluded
-                            ? "border-[#f0c9b9] bg-[#fff1eb] text-[#9c4324]"
-                            : "border-[#d2dedb] bg-white text-[#3b4947] hover:bg-[#f7fbfa]")
-                        }
-                      >
-                        {isExcluded ? "恢复" : "排除"}
-                      </button>
                     </div>
                   );
                 })
@@ -3160,7 +2319,7 @@ export default function Home() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-[#17201f]">
-                  编辑工具
+                  局部编辑
                 </h2>
                 <p className="mt-1 text-xs text-[#6f7d7b]">
                   当前颜色：{selectedColorLabel}
@@ -3168,63 +2327,106 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsManualColoringMode(true)}
+                onClick={() => {
+                  setIsManualColoringMode(!isManualColoringMode);
+                  if (isManualColoringMode) {
+                    clearSelection();
+                    setSelectedColor(null);
+                  }
+                }}
                 disabled={!chartReady}
-                className="h-8 rounded-md bg-[#1f9d8a] px-3 text-xs font-semibold text-white hover:bg-[#188775] disabled:cursor-not-allowed disabled:bg-[#a7c9c3]"
+                className={
+                  "h-8 rounded-md px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:bg-[#a7c9c3] " +
+                  (isManualColoringMode
+                    ? "bg-[#17201f] text-white hover:bg-[#2c3836]"
+                    : "bg-[#1f9d8a] text-white hover:bg-[#188775]")
+                }
               >
-                开始编辑
+                {isManualColoringMode ? "完成编辑" : "编辑图纸"}
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            {isManualColoringMode ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    ["paint", "单格上色"],
+                    ["select", "框选"],
+                  ].map(([tool, label]) => (
+                    <button
+                      key={tool}
+                      type="button"
+                      onClick={() => {
+                        setEditorTool(tool as "paint" | "select");
+                        if (tool !== "select") clearSelection();
+                      }}
+                      disabled={!chartReady}
+                      className={
+                        "h-9 rounded-md border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-45 " +
+                        (editorTool === tool
+                          ? "border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]"
+                          : "border-[#d2dedb] bg-white text-[#3b4947] hover:bg-[#f7fbfa]")
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleUndoEdit}
+                    disabled={editHistory.length === 0}
+                    className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    撤回
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRedoEdit}
+                    disabled={editFuture.length === 0}
+                    className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    重做
+                  </button>
+                </div>
               <button
                 type="button"
                 onClick={handleToggleFullPalette}
                 disabled={!chartReady}
                 className="h-9 rounded-md border border-[#d2dedb] bg-white text-xs font-medium text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {showFullPalette ? "图中颜色" : "完整色板"}
+                  {showFullPalette ? "只看图中颜色" : "切换可用色域"}
               </button>
-              <button
-                type="button"
-                onClick={handleColorReplaceToggle}
-                disabled={!chartReady}
-                className={
-                  "h-9 rounded-md border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-45 " +
-                  (colorReplaceState.isActive
-                    ? "border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]"
-                    : "border-[#d2dedb] bg-white text-[#3b4947] hover:bg-[#f7fbfa]")
-                }
-              >
-                替换颜色
-              </button>
-              <button
-                type="button"
-                onClick={handleEraseToggle}
-                disabled={!chartReady}
-                className={
-                  "h-9 rounded-md border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-45 " +
-                  (isEraseMode
-                    ? "border-[#f0a977] bg-[#fff1e6] text-[#9c4f12]"
-                    : "border-[#d2dedb] bg-white text-[#3b4947] hover:bg-[#f7fbfa]")
-                }
-              >
-                擦除背景块
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleMagnifier}
-                disabled={!chartReady}
-                className={
-                  "h-9 rounded-md border text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-45 " +
-                  (isMagnifierActive
-                    ? "border-[#1f9d8a] bg-[#e7f3f0] text-[#176b5f]"
-                    : "border-[#d2dedb] bg-white text-[#3b4947] hover:bg-[#f7fbfa]")
-                }
-              >
-                放大镜
-              </button>
-            </div>
-            {selection.size > 0 && (
+                <div className="max-h-52 overflow-auto rounded-md border border-[#dce5e2] bg-[#fbfdfc] p-2">
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {(showFullPalette ? fullPaletteColors : currentGridColors).map(
+                      (colorData) => {
+                        const isSelected =
+                          selectedColor?.color.toUpperCase() ===
+                          colorData.color.toUpperCase();
+                        return (
+                          <button
+                            key={`${colorData.key}-${colorData.color}`}
+                            type="button"
+                            onClick={() => handleColorSelect(colorData)}
+                            className={
+                              "h-7 w-7 rounded border shadow-inner transition " +
+                              (isSelected
+                                ? "border-[#17201f] ring-2 ring-[#1f9d8a]"
+                                : "border-black/10 hover:scale-105")
+                            }
+                            style={{ backgroundColor: colorData.color }}
+                            title={colorData.key}
+                            aria-label={`选择 ${colorData.key}`}
+                          />
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {isManualColoringMode && selection.size > 0 && (
               <div className="mt-3 rounded-md border border-[#d2dedb] bg-[#fbfdfc] p-3">
                 <div className="mb-2 text-xs font-medium text-[#3b4947]">
                   已选 {selection.size} 格
@@ -3236,7 +2438,7 @@ export default function Home() {
                     disabled={!selectedColor}
                     className="h-8 rounded-md border border-[#d2dedb] bg-white text-[11px] font-medium text-[#3b4947] hover:bg-[#f7fbfa] disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    替换颜色
+                    替换为当前色
                   </button>
                   <button
                     type="button"
@@ -3275,107 +2477,15 @@ export default function Home() {
           </div>
         </div>
       )}
-      <FloatingToolbar
-        isManualColoringMode={isManualColoringMode}
-        isPaletteOpen={isFloatingPaletteOpen}
-        onTogglePalette={() => setIsFloatingPaletteOpen(!isFloatingPaletteOpen)}
-        onExitManualMode={() => {
-          setIsManualColoringMode(false);
-          setSelectedColor(null);
-          setTooltipData(null);
-          setIsEraseMode(false);
-          setColorReplaceState({ isActive: false, step: "select-source" });
-          setHighlightColorKey(null);
-          setIsMagnifierActive(false);
-          setMagnifierSelectionArea(null);
-          clearEditHistory();
-        }}
-        onToggleMagnifier={handleToggleMagnifier}
-        isMagnifierActive={isMagnifierActive}
-      />
-      {isManualColoringMode && (
-        <FloatingColorPalette
-          colors={currentGridColors}
-          selectedColor={selectedColor}
-          onColorSelect={handleColorSelect}
-          selectedColorSystem={selectedColorSystem}
-          isEraseMode={isEraseMode}
-          onEraseToggle={handleEraseToggle}
-          fullPaletteColors={fullPaletteColors}
-          showFullPalette={showFullPalette}
-          onToggleFullPalette={handleToggleFullPalette}
-          colorReplaceState={colorReplaceState}
-          onColorReplaceToggle={handleColorReplaceToggle}
-          onColorReplace={handleColorReplace}
-          onHighlightColor={handleHighlightColor}
-          isOpen={isFloatingPaletteOpen}
-          onToggleOpen={() => setIsFloatingPaletteOpen(!isFloatingPaletteOpen)}
-          isActive={activeFloatingTool === "palette"}
-          onActivate={handleActivatePalette}
-          canUndo={editHistory.length > 0}
-          onUndo={handleUndoEdit}
-        />
-      )}
-      {isManualColoringMode && (
-        <>
-          <MagnifierTool
-            isActive={isMagnifierActive}
-            onToggle={handleToggleMagnifier}
-            mappedPixelData={mappedPixelData}
-            gridDimensions={gridDimensions}
-            selectedColor={selectedColor}
-            selectedColorSystem={selectedColorSystem}
-            onPixelEdit={handleMagnifierPixelEdit}
-            cellSize={
-              gridDimensions
-                ? Math.min(
-                    6,
-                    Math.max(
-                      4,
-                      500 / Math.max(gridDimensions.N, gridDimensions.M),
-                    ),
-                  )
-                : 6
-            }
-            selectionArea={magnifierSelectionArea}
-            onClearSelection={() => setMagnifierSelectionArea(null)}
-            isFloatingActive={activeFloatingTool === "magnifier"}
-            onActivateFloating={handleActivateMagnifier}
-            highlightColorKey={highlightColorKey}
-          />
-          <MagnifierSelectionOverlay
-            isActive={isMagnifierActive && !magnifierSelectionArea}
-            canvasRef={pixelatedCanvasRef}
-            gridDimensions={gridDimensions}
-            cellSize={
-              gridDimensions
-                ? Math.min(
-                    6,
-                    Math.max(
-                      4,
-                      500 / Math.max(gridDimensions.N, gridDimensions.M),
-                    ),
-                  )
-                : 6
-            }
-            onSelectionComplete={setMagnifierSelectionArea}
-          />
-        </>
-      )}
-      <DownloadSettingsModal
+      <ExportDialog
         isOpen={isDownloadSettingsOpen}
         onClose={() => setIsDownloadSettingsOpen(false)}
-        options={downloadOptions}
-        onOptionsChange={setDownloadOptions}
-        onDownload={handleDownloadRequest}
-      />
-      <FocusModePreDownloadModal
-        isOpen={isFocusModePreDownloadModalOpen}
-        onClose={() => setIsFocusModePreDownloadModalOpen(false)}
-        onProceedWithoutDownload={handleProceedToFocusMode}
-        mappedPixelData={mappedPixelData}
-        gridDimensions={gridDimensions}
-        selectedColorSystem={selectedColorSystem}
+        canExport={chartReady}
+        boardPreference={boardPreference}
+        onBoardPreferenceChange={setBoardPreference}
+        boardPlan={boardPlan}
+        onPrintChart={handlePrintChartDownload}
+        onMakerPack={handleMakerPackDownload}
       />
       {toastMessage && (
         <div

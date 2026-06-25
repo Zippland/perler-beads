@@ -6,7 +6,6 @@ const applied = {
   similarityThreshold: 30,
   pixelationMode: 'dominant',
   inventoryPresetId: 'mard-full',
-  excludedColorKeys: [],
   cropRect: null,
 };
 
@@ -14,7 +13,10 @@ describe('recompile policy', () => {
   test('detects draft changes that require recompilation', () => {
     expect(getCompileConfigChanges(applied, { ...applied, gridWidth: 120 })).toEqual(['gridWidth']);
     expect(getCompileConfigChanges(applied, { ...applied, inventoryPresetId: 'mard-48' })).toEqual(['inventoryPresetId']);
-    expect(getCompileConfigChanges(applied, { ...applied, excludedColorKeys: ['#FF0000'] })).toEqual(['excludedColorKeys']);
+  });
+
+  test('does not model excluded colors as a compile setting', () => {
+    expect(Object.keys(applied)).not.toContain('excludedColorKeys');
   });
 
   test('requires confirmation only when changed config would overwrite local edits', () => {

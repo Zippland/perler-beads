@@ -9,7 +9,6 @@ import React, {
   useState,
 } from "react";
 import { MappedPixel } from "../utils/pixelation";
-import { BoardPlan } from "../domain/boards/boardPlan";
 
 interface PixelatedPreviewCanvasProps {
   mappedPixelData: MappedPixel[][] | null;
@@ -29,8 +28,6 @@ interface PixelatedPreviewCanvasProps {
   ) => void;
   highlightColorKey?: string | null;
   onHighlightComplete?: () => void;
-  boardPlan?: BoardPlan | null;
-  selectedBoardId?: string | null;
   editorTool?: "paint" | "erase" | "select";
   selection?: Set<string>;
   draftSelection?: Set<string>;
@@ -46,8 +43,6 @@ const drawPixelatedCanvas = (
   dims: { N: number; M: number } | null,
   highlightColorKey?: string | null,
   isHighlighting?: boolean,
-  boardPlan?: BoardPlan | null,
-  selectedBoardId?: string | null,
   selection?: Set<string>,
   draftSelection?: Set<string>,
 ) => {
@@ -71,7 +66,6 @@ const drawPixelatedCanvas = (
   const externalBackgroundColor = isDarkMode ? "#374151" : "#F3F4F6"; // gray-700 : gray-100
   const gridLineColor = isDarkMode ? "#4B5563" : "#DDDDDD"; // gray-600 : lighter gray
   const groupLineColor = isDarkMode ? "#9CA3AF" : "#8EA19D";
-  const boardLineColor = isDarkMode ? "#FBBF24" : "#B45309";
 
   const { N, M } = dims;
   const outputWidth = canvas.width;
@@ -155,40 +149,6 @@ const drawPixelatedCanvas = (
   }
   pixelatedCtx.restore();
 
-  if (boardPlan) {
-    pixelatedCtx.save();
-    pixelatedCtx.lineWidth = Math.max(
-      2,
-      Math.min(cellWidthOutput, cellHeightOutput) * 0.14,
-    );
-    pixelatedCtx.font = `${Math.max(12, Math.min(18, cellWidthOutput * 2.4))}px sans-serif`;
-    pixelatedCtx.textBaseline = "top";
-
-    for (const board of boardPlan.boards) {
-      const x = board.gridStartColumn * cellWidthOutput;
-      const y = board.gridStartRow * cellHeightOutput;
-      const width = board.usedWidth * cellWidthOutput;
-      const height = board.usedHeight * cellHeightOutput;
-      const isSelected = selectedBoardId === board.id;
-
-      if (isSelected) {
-        pixelatedCtx.fillStyle = "rgba(251, 191, 36, 0.14)";
-        pixelatedCtx.fillRect(x, y, width, height);
-      }
-
-      pixelatedCtx.strokeStyle = boardLineColor;
-      pixelatedCtx.strokeRect(
-        x + 1,
-        y + 1,
-        Math.max(0, width - 2),
-        Math.max(0, height - 2),
-      );
-      pixelatedCtx.fillStyle = boardLineColor;
-      pixelatedCtx.fillText(board.id, x + 5, y + 5);
-    }
-    pixelatedCtx.restore();
-  }
-
   const drawSelection = (keys: Set<string>, fill: string, stroke: string) => {
     if (keys.size === 0) return;
     pixelatedCtx.save();
@@ -229,8 +189,6 @@ const PixelatedPreviewCanvas: React.FC<PixelatedPreviewCanvasProps> = ({
   onInteraction,
   highlightColorKey,
   onHighlightComplete,
-  boardPlan,
-  selectedBoardId,
   editorTool,
   selection,
   draftSelection,
@@ -299,8 +257,6 @@ const PixelatedPreviewCanvas: React.FC<PixelatedPreviewCanvasProps> = ({
         gridDimensions,
         highlightColorKey,
         isHighlighting,
-        boardPlan,
-        selectedBoardId,
         selection,
         draftSelection,
       );
@@ -312,8 +268,6 @@ const PixelatedPreviewCanvas: React.FC<PixelatedPreviewCanvasProps> = ({
     darkModeState,
     highlightColorKey,
     isHighlighting,
-    boardPlan,
-    selectedBoardId,
     selection,
     draftSelection,
   ]); // Add darkModeState dependency
