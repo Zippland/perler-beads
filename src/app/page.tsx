@@ -583,10 +583,9 @@ export default function Home() {
     // 绘制每个像素
     pixelData.forEach((row, rowIndex) => {
       row.forEach((cell, colIndex) => {
-        if (cell) {
-          // 使用颜色，外部单元格用白色
-          const color = cell.isExternal ? '#FFFFFF' : cell.color;
-          ctx.fillStyle = color;
+        if (cell && !cell.isExternal) {
+          // Keep external cells transparent in the synthetic PNG.
+          ctx.fillStyle = cell.color;
           ctx.fillRect(
             colIndex * pixelSize, 
             rowIndex * pixelSize, 
