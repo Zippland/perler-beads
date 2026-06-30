@@ -97,6 +97,25 @@ import { TRANSPARENT_KEY, transparentColorData } from '../utils/pixelEditingUtil
 import DonationModal from '../components/DonationModal';
 import FocusModePreDownloadModal from '../components/FocusModePreDownloadModal';
 
+type ColorCounts = { [key: string]: { count: number; color: string } };
+
+interface EditSnapshot {
+  mappedPixelData: MappedPixel[][];
+  colorCounts: ColorCounts;
+  totalBeadCount: number;
+}
+
+function cloneMappedPixelData(data: MappedPixel[][]): MappedPixel[][] {
+  return data.map(row => row.map(cell => ({ ...cell })));
+}
+
+function cloneColorCounts(counts: ColorCounts): ColorCounts {
+  return Object.entries(counts).reduce<ColorCounts>((acc, [key, value]) => {
+    acc[key] = { ...value };
+    return acc;
+  }, {});
+}
+
 export default function Home() {
   const [originalImageSrc, setOriginalImageSrc] = useState<string | null>(null);
   const [granularity, setGranularity] = useState<number>(50);
@@ -119,7 +138,7 @@ export default function Home() {
   const [initialGridColorKeys, setInitialGridColorKeys] = useState<Set<string>>(new Set());
   const [mappedPixelData, setMappedPixelData] = useState<MappedPixel[][] | null>(null);
   const [gridDimensions, setGridDimensions] = useState<{ N: number; M: number } | null>(null);
-  const [colorCounts, setColorCounts] = useState<{ [key: string]: { count: number; color: string } } | null>(null);
+  const [colorCounts, setColorCounts] = useState<ColorCounts | null>(null);
   const [totalBeadCount, setTotalBeadCount] = useState<number>(0);
   const [tooltipData, setTooltipData] = useState<{ x: number, y: number, key: string, color: string } | null>(null);
   const [remapTrigger, setRemapTrigger] = useState<number>(0);
@@ -186,11 +205,6 @@ export default function Home() {
   const [showDesktopModal, setShowDesktopModal] = useState<boolean>(false);
 
   // 新增：编辑撤回历史栈（多步）
-  interface EditSnapshot {
-    mappedPixelData: MappedPixel[][];
-    colorCounts: { [key: string]: { count: number; color: string } };
-    totalBeadCount: number;
-  }
   const [editHistory, setEditHistory] = useState<EditSnapshot[]>([]);
 
   // 新增：一键去背景撤回快照（单步）
@@ -229,8 +243,8 @@ export default function Home() {
   const saveEditSnapshot = useCallback(() => {
     if (!mappedPixelData || !colorCounts) return;
     const snapshot: EditSnapshot = {
-      mappedPixelData: mappedPixelData.map(row => row.map(cell => ({ ...cell }))),
-      colorCounts: { ...colorCounts },
+      mappedPixelData: cloneMappedPixelData(mappedPixelData),
+      colorCounts: cloneColorCounts(colorCounts),
       totalBeadCount,
     };
     setEditHistory(prev => [...prev.slice(-49), snapshot]);
@@ -240,8 +254,8 @@ export default function Home() {
   const handleUndoEdit = useCallback(() => {
     if (editHistory.length === 0) return;
     const snapshot = editHistory[editHistory.length - 1];
-    setMappedPixelData(snapshot.mappedPixelData);
-    setColorCounts(snapshot.colorCounts);
+    setMappedPixelData(cloneMappedPixelData(snapshot.mappedPixelData));
+    setColorCounts(cloneColorCounts(snapshot.colorCounts));
     setTotalBeadCount(snapshot.totalBeadCount);
     setEditHistory(prev => prev.slice(0, -1));
     showToast('已撤回上一步');
@@ -250,8 +264,8 @@ export default function Home() {
   // 一键去背景单步撤回
   const handleUndoBgRemoval = useCallback(() => {
     if (!bgRemovalSnapshot) return;
-    setMappedPixelData(bgRemovalSnapshot.mappedPixelData);
-    setColorCounts(bgRemovalSnapshot.colorCounts);
+    setMappedPixelData(cloneMappedPixelData(bgRemovalSnapshot.mappedPixelData));
+    setColorCounts(cloneColorCounts(bgRemovalSnapshot.colorCounts));
     setTotalBeadCount(bgRemovalSnapshot.totalBeadCount);
     setBgRemovalSnapshot(null);
     showToast('已撤回背景去除');
@@ -1311,8 +1325,8 @@ export default function Home() {
 
     // 保存快照用于单步撤回
     setBgRemovalSnapshot({
-      mappedPixelData: mappedPixelData.map(row => row.map(cell => ({ ...cell }))),
-      colorCounts: colorCounts ? { ...colorCounts } : {},
+      mappedPixelData: cloneMappedPixelData(mappedPixelData),
+      colorCounts: colorCounts ? cloneColorCounts(colorCounts) : {},
       totalBeadCount,
     });
     // 去背景会大幅改变数据，清空编辑撤回历史
