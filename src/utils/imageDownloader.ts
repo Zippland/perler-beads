@@ -239,7 +239,7 @@ export async function downloadImage({
     const downloadCellSize = 30;
   
     // 从下载选项中获取设置
-    const { showGrid, gridInterval, showCoordinates, gridLineColor, includeStats, showCellNumbers = true } = options;
+    const { showGrid, gridInterval, showCoordinates, gridLineColor, includeStats, showCellNumbers = true, hideWhiteCellNumbers = false } = options;
   
     // 设置边距空间用于坐标轴标注（如果需要）
     const axisLabelSize = showCoordinates ? Math.max(30, Math.floor(downloadCellSize)) : 0;
@@ -567,7 +567,9 @@ export async function downloadImage({
           ctx.fillStyle = cellColor;
           ctx.fillRect(drawX, drawY, downloadCellSize, downloadCellSize);
 
-          if (showCellNumbers) {
+          const shouldDrawCellNumber = showCellNumbers && !(hideWhiteCellNumbers && cellColor.toUpperCase() === '#FFFFFF');
+
+          if (shouldDrawCellNumber) {
             const cellKey = getDisplayColorKey(cellData.color || '#FFFFFF', selectedColorSystem);
             ctx.fillStyle = getContrastColor(cellColor);
             ctx.fillText(cellKey, drawX + downloadCellSize / 2, drawY + downloadCellSize / 2);

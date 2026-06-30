@@ -140,6 +140,7 @@ export default function Home() {
     gridInterval: 10,
     showCoordinates: true,
     showCellNumbers: true,
+    hideWhiteCellNumbers: false,
     gridLineColor: gridLineColorOptions[0].value,
     includeStats: true, // 默认包含统计信息
     exportCsv: false // 默认不导出CSV
