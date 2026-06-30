@@ -32,7 +32,8 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
       for (let col = 0; col < gridDimensions.N; col++) {
         const pixel = mappedPixelData[row][col];
         // 排除透明色和空白区域
-        if (pixel.color && 
+        if (!pixel.isExternal &&
+            pixel.color &&
             pixel.color !== 'transparent' && 
             pixel.color !== 'rgba(0,0,0,0)' &&
             !pixel.color.includes('rgba(0, 0, 0, 0)')) {
@@ -89,13 +90,15 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
     for (let row = 0; row < gridDimensions.M; row++) {
       for (let col = 0; col < gridDimensions.N; col++) {
         const pixel = mappedPixelData[row][col];
-        ctx.fillStyle = pixel.color;
-        ctx.fillRect(
-          col * cellWidth,
-          row * cellHeight,
-          cellWidth,
-          cellHeight
-        );
+        if (!pixel.isExternal) {
+          ctx.fillStyle = pixel.color;
+          ctx.fillRect(
+            col * cellWidth,
+            row * cellHeight,
+            cellWidth,
+            cellHeight
+          );
+        }
       }
     }
 
@@ -522,4 +525,4 @@ const CompletionCard: React.FC<CompletionCardProps> = ({
   );
 };
 
-export default CompletionCard; 
+export default CompletionCard;
